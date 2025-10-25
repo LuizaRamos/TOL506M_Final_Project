@@ -48,7 +48,7 @@ class Config:
     FREEZE_UNTIL_LAYER = None
 
     # Learning rate scheduling
-    LR_SCHEDULER = 'cosine' # other options to test: 'step', 'cosine' 'plateu'
+    LR_SCHEDULER = 'cosine' # other options to test: 'step' or 'cosine'
     LR_STEP_SIZE = 30
     LR_GAMMA = 0.1
 
