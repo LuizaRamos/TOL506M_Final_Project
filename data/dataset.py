@@ -143,7 +143,7 @@ def get_data_loaders(data_path: str,
     # Apply transforms
     train_dataset.dataset.transform = train_transforms
     val_dataset.dataset.transform = val_transform
-    test_dataset.dataset.transform = val_transform
+    test_dataset.dataset.transform = val_transform # Does it make sense?
 
     # Create data loaders
     train_loader = DataLoader(
@@ -171,3 +171,12 @@ def get_data_loaders(data_path: str,
     )
 
     return train_loader, val_loader, test_loader, num_classes
+
+def get_class_names(dataset):
+    """ Obtain the class names from a potentially nested dataset. """
+    if hasattr(dataset, 'classes'):
+        return dataset.classes
+    elif hasattr(dataset, 'dataset'):
+        return get_class_names(dataset.dataset)
+    else:
+        raise TypeError('Cannot determine class name from dataset')

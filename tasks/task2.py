@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from datetime import datetime
 import time
 import json
 
@@ -126,8 +127,11 @@ def fine_tune_pretrained(config: Config,
     print(f" Recall: {test_metrics['recall']:.2f}%")
     print(f" F1-score: {test_metrics['f1-score']:.2f}%")
 
+    # Set a name for the results to be saved under
+    results_version_name = datetime.now().strftime("%Y%m%d-%H%M%S")
+
     # Plot training curve
-    plot_path = config.PLOTS_DIR / f"task2_fine_tuned_{data_fraction:.2f}.png"
+    plot_path = config.PLOTS_DIR / f"task2_fine_tuned_{results_version_name}.png"
     plot_training_curves(
         train_losses, val_losses, train_accuracies, val_accuracies, save_path=str(plot_path)
     )
@@ -144,7 +148,7 @@ def fine_tune_pretrained(config: Config,
         'val_accuracies': val_accuracies
     }
 
-    result_path = config.METRICS_DIR / f"task2_fine_tuned_{data_fraction:.2f}.json"
+    result_path = config.METRICS_DIR / f"task2_fine_tuned_{results_version_name}.json"
     with open(result_path, 'w') as f:
         json.dump(results, f, indent=4)
 
