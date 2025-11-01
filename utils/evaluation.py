@@ -7,7 +7,7 @@ import numpy as np
 from typing import Dict, Tuple
 
 def evaluate_model(
-        model: nn.Model,
+        model: nn.Module,
         dataloader: DataLoader,
         device: torch.device
 ) -> Dict[str, float]:

@@ -3,7 +3,6 @@ from torch.utils.data import DataLoader
 from transformers import AutoProcessor, AutoModel
 from PIL import Image
 import numpy as np
-from datetime import datetime
 from tqdm import tqdm
 import time
 import json
@@ -138,8 +137,7 @@ def zero_shot_classification(config: Config = None):
         'prompts': config.ZERO_SHOT_PROMPTS
     }
 
-    results_version_name = datetime.now().strftime("%Y%m%d-%H%M%S")
-    results_path = config.RESULTS_DIR / f'task3_zero_shot_{results_version_name}.json'
+    results_path = config.RESULTS_DIR / f'task3_zero_shot.json'
     with open(results_path, 'w') as f:
         json.dump(results, f, indent=4)
 

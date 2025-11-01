@@ -102,9 +102,6 @@ def train_from_scratch(config: Config = None,
     best_val_accuracy = 0.0
     start_time = time.time()
 
-    # Set a name for the results to be saved under
-    results_version_name = datetime.now().strftime("%Y%m%d-%H%M%S")
-
     for epoch in range(1, config.SCRATCH_EPOCHS + 1):
         # Train
         train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, config.DEVICE, epoch)
@@ -126,7 +123,7 @@ def train_from_scratch(config: Config = None,
         if val_acc > best_val_accuracy:
             best_val_accuracy = val_acc
             if save_model:
-                save_path = config.MODELS_DIR / f"task1_scratch_bets_fraction_{results_version_name}_{data_fraction:.2f}.pth"
+                save_path = config.MODELS_DIR / f"task1_scratch_bets_fraction_{data_fraction:.2f}.pth"
                 torch.save(model.state_dict(), save_path)
                 print(f"Saved best model (Val Acc: {best_val_accuracy:.2f}%).")
 
@@ -150,7 +147,7 @@ def train_from_scratch(config: Config = None,
     print(f" F1-score: {test_metrics['f1-score']:.2f}%")
 
     # Plot training curves
-    plot_path = config.PLOTS_DIR/ f"task1_scratch_learning_curves_{results_version_name}.png"
+    plot_path = config.PLOTS_DIR/ f"task1_scratch_learning_curves_{data_fraction:.2f}.png"
     plot_training_curves(
         train_losses, val_losses, train_accuracies, val_accuracies, save_path=str(plot_path)
     )
@@ -167,7 +164,7 @@ def train_from_scratch(config: Config = None,
         'val_accuracies': val_accuracies
     }
 
-    result_path = config.METRICS_DIR / f"task1_scratch_learning_curves_{results_version_name}.json"
+    result_path = config.METRICS_DIR / f'task1_scratch_learning_curves_{data_fraction:.2f}.json'
     with open(result_path, 'w') as f:
         json.dump(results, f, indent=4)
 

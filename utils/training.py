@@ -61,7 +61,7 @@ def train_epoch(
 
     return avg_loss, avg_accuracy
 
-def validate(model: nn.Model,
+def validate(model: nn.Module,
              dataloader: DataLoader,
              criterion: nn.Module,
              device: torch.device) -> Tuple[float, float]:

@@ -67,6 +67,7 @@ class Config:
 
     # Learning curves
     DATA_FRACTIONS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    #DATA_FRACTIONS = [0.1, 0.25, 0.5, 0.75, 1.0] Correct one, just running the other for curiosity
 
     # Zero-Shot configuration
     SIGLIP_MODEL = "google/siglip-base-patch16-224"

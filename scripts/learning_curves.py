@@ -6,7 +6,7 @@ import sys
 import pandas as pd
 from mpl_toolkits.axes_grid1.axes_size import Fraction
 
-from utils import plot_learning_curves
+from utils.visualization import plot_learning_curves
 
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -45,19 +45,19 @@ def main ():
         zero_shot_accs.append(result_task3['test_metrics']['accuracy'])
 
     else:
-        # Loads from existing results -> FIX IT SO THAT IT GETS THE PROPER FILE
+        # Loads from existing results
         for fraction in config.DATA_FRACTIONS:
-            path_task1 = config.METRICS_DIR / f"task1_scratch_learning_curves_{fraction: .2f}.json" # alter to the proper name ...curves_{results_version_name}.json"
+            path_task1 = config.METRICS_DIR / f"task1_scratch_learning_curves_{fraction: .2f}.json"
             with open(path_task1) as f:
                 results_task1 = json.load(f)
                 scratch_accs.append(results_task1['test_metrics']['accuracy'])
 
-            path_task2 = config.METRICS_DIR / f"task2_fine_tuned_{fraction: .2f}.json" # alter to the proper name ...tuned_{results_version_name}.json
+            path_task2 = config.METRICS_DIR / f"task2_fine_tuned_{fraction: .2f}.json"
             with open(path_task2) as f:
                 results_task2 = json.load(f)
                 fine_tune_accs.append(results_task2['test_metrics']['accuracy'])
 
-        path_task3 = config.RESULTS_DIR / f'task3_zero_shot_.json' # alter to the proper name ...shot_{results_version_name}.json
+        path_task3 = config.RESULTS_DIR / f'task3_zero_shot.json'
         with open(path_task3) as f:
             results_task3 = json.load(f)
             zero_shot_accs = results_task3['test_metrics']['accuracy']
