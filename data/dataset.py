@@ -181,3 +181,15 @@ def get_class_names(dataset):
         return get_class_names(dataset.dataset)
     else:
         raise TypeError('Cannot determine class name from dataset')
+
+def get_data():
+    global DATA_PATH
+    try:
+        # Download dataset
+        path = kagglehub.dataset_download("alessiocorrado99/animals10")
+        print(f'Dataset downloaded: {path}\n')
+        DATA_PATH = Path(path) / 'raw-img'
+    except Exception as e:
+        print(f'Error downloading dataset: {e}\n')
+
+    return DATA_PATH
