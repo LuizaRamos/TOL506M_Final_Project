@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
-from numpy.distutils.lib2def import output_def
 from torch.utils.data import DataLoader
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, precision_recall_fscore_support
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_fscore_support
 import numpy as np
 from typing import Dict, Tuple
 

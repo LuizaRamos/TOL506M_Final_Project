@@ -5,6 +5,7 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 
 from config import Config
+from data.set_data import get_data
 from tasks.task1 import train_from_scratch
 from tasks.task2 import fine_tune_pretrained
 from tasks.task3 import zero_shot_classification
@@ -17,7 +18,6 @@ def main():
         '--dataset',
         type=str,
         default='animals10',
-        choices=['animals10', 'oxford_pet', 'animals10n'],
         help='Dataset name'
     )
     parser.add_argument(
@@ -36,15 +36,15 @@ def main():
 
     # Create config
     config = Config()
-    config.DATASET = args.dataset
+    config.DATASET = get_data()
 
     if args.data_path:
         config.DATASET_PATH = Path(args.data_path)
 
     # Reduce epochs for quick testing
     if args.quick:
-        config.SCRATCH_EPOCHS = 5
-        config.FINETUNE_EPOCHS = 5
+        config.SCRATCH_EPOCHS = 1 # for testing
+        config.FINETUNE_EPOCHS = 1 # for testing
         print('\n Quick mode: Using reduced epochs for testing')
 
     # Report Model which will be run

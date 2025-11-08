@@ -1,0 +1,64 @@
+# --- Python basics ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Byte-compiled or cache files
+*.pyc
+*.pkl
+*.pyo
+*.tmp
+*.log
+
+# --- Datasets ---
+# Ignore all raw and processed data
+data/animals10/
+#!datasets/.gitkeep  # allow folder placeholder if you need it
+
+# --- Results and outputs ---
+#results/
+#runs/
+#outputs/
+#*.csv
+#*.tsv
+#*.xlsx
+#*.h5
+#*.pt
+#*.pth
+#*.ckpt
+#*.model
+
+# --- Temporary and debug files ---
+.DS_Store
+Thumbs.db
+*.bak
+*.swp
+
+# --- IDEs and editors ---
+# JetBrains (DataSpell, PyCharm, IntelliJ, etc.)
+.idea/
+*.iml
+
+# --- Configs and credentials ---
+# Kaggle and API keys
+kaggle.json
+*.env
+.env.*
+
+# --- Reports and generated artifacts ---
+*.pdf
+*.docx
+*.zip
+*.tar
+*.tar.gz
+*.ipynb_checkpoints/
