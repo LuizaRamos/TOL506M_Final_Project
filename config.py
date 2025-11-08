@@ -10,9 +10,9 @@ class Config:
     PROJECT_ROOT = Path(__file__).parent
     DATA_DIR = PROJECT_ROOT / 'data'
     RESULTS_DIR = PROJECT_ROOT / 'results'
-    MODELS_DIR = PROJECT_ROOT / 'models'
-    PLOTS_DIR = PROJECT_ROOT / 'plots'
-    METRICS_DIR = PROJECT_ROOT / 'metrics'
+    MODELS_DIR = RESULTS_DIR / 'models'
+    PLOTS_DIR = RESULTS_DIR / 'plots'
+    METRICS_DIR = RESULTS_DIR / 'metrics'
 
     # Create directories
     for dir_path in [DATA_DIR, RESULTS_DIR, MODELS_DIR, PLOTS_DIR, METRICS_DIR]:
@@ -66,8 +66,7 @@ class Config:
     RANDOM_SEED = 7278
 
     # Learning curves
-    DATA_FRACTION = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-    #DATA_FRACTION = [0.1, 0.25, 0.5, 0.75, 1.0] Correct one, just running the other for curiosity
+    DATA_FRACTION = [0.1, 0.25, 0.5, 0.75, 1.0]
 
     # Zero-Shot configuration
     SIGLIP_MODEL = "google/siglip-base-patch16-224"
