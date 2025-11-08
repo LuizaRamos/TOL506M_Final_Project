@@ -44,7 +44,7 @@ class WildlifeDataset(Dataset):
         return img, label
 
 def stratified_split(dataset: WildlifeDataset,
-                    train_size: float = 0.8,
+                    train_size: float = 0.7,
                     val_size: float = 0.15,
                     test_size: float = 0.15,
                     random_seed: int = 7278) -> tuple[Subset[Any], Subset[Any], Subset[Any]]:
