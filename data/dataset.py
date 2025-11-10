@@ -27,7 +27,7 @@ class WildlifeDataset(Dataset):
         self.split = split
 
         # Load dataset using ImageFolder structure
-        self.dataset = datasets.ImageFolder(self.root_dir)
+        self.dataset = datasets.ImageFolder(self.root_dir, transform=transform)
         self.classes = self.dataset.classes
         self.class_to_idx = self.dataset.class_to_idx
 
@@ -36,10 +36,6 @@ class WildlifeDataset(Dataset):
 
     def __getitem__(self, idx):
         img, label = self.dataset[idx]
-
-        if self.transform:
-            img = self.transform(img)
-
         return img, label
 
 def stratified_split(dataset: WildlifeDataset,
@@ -80,7 +76,7 @@ def stratified_split(dataset: WildlifeDataset,
 
     # Second split -> Training + Val in to different splits
     labels_train_val = labels[train_val_indices]
-    val_size_adjusted = int (val_size / train_val_size)
+    val_size_adjusted = val_size / train_val_size
     train_indices, val_indices = train_test_split(
         train_val_indices,
         test_size=val_size_adjusted,
@@ -90,7 +86,7 @@ def stratified_split(dataset: WildlifeDataset,
 
     return train_indices, val_indices, test_indices
 
-def _unwrap_to_ImageFolder(ds: Any) -> datasets.ImageFolder:
+def _unwrap_to_imagefolder(ds: Any) -> datasets.ImageFolder:
     """ Follow .dataset links until reaches an ImageFolder object. """
     cur = ds
     while hasattr(cur, 'dataset'):
@@ -121,7 +117,7 @@ def is_italian(dataset: Any) -> bool:
     :param dataset: PyTorch dataset, but specially the Wildlife dataset, given the dictionary used.
     :return: True if that dataset's visible class names are italian
     """
-    base = _unwrap_to_ImageFolder(dataset)
+    base = _unwrap_to_imagefolder(dataset)
     if not hasattr(base, 'classes'):
         return False
     names = set(map(str.lower, base.classes))
@@ -136,7 +132,7 @@ def translate_names(dataset: Any) -> Any:
     :param dataset: PyTorch dataset, but specially the Wildlife dataset, given the dictionary used.
     :return: dataset with English class names, mantling original class order and indices stable
     """
-    base = _unwrap_to_ImageFolder(dataset)
+    base = _unwrap_to_imagefolder(dataset)
     if hasattr(base, 'classes') and hasattr(base, 'class_to_idx'):
         base.classes = [_IT2EN.get(name,name) for name in base.classes]
         base.class_to_idx = {name: idx for idx, name in enumerate(base.classes)}
@@ -145,7 +141,7 @@ def translate_names(dataset: Any) -> Any:
 def get_class_names(dataset: Any) -> List[str]:
     """ Obtain the class names from a potentially nested dataset. """
 
-    base = _unwrap_to_ImageFolder(dataset)
+    base = _unwrap_to_imagefolder(dataset)
     if not hasattr(base, 'classes'):
         raise AttributeError('Dataset does not contain a class attribute')
     names = list(base.classes)
@@ -186,7 +182,7 @@ def get_data_loaders(data_path: str,
 
     # Get transforms
     train_transforms = get_train_transforms(use_augmentation=use_augmentation)
-    val_transform = get_val_transforms()
+    val_transforms = get_val_transforms()
 
     # Base dataset computing labels and class count
     base_full = WildlifeDataset(data_path, transform=None)
@@ -215,8 +211,8 @@ def get_data_loaders(data_path: str,
 
     # Create one WildlifeDateset per slip to keep transforms independent
     train_base = WildlifeDataset(data_path, transform=train_transforms, split='train')
-    val_base = WildlifeDataset(data_path, transform=train_transforms, split='val')
-    test_base = WildlifeDataset(data_path, transform=train_transforms, split='test')
+    val_base = WildlifeDataset(data_path, transform=val_transforms, split='val')
+    test_base = WildlifeDataset(data_path, transform=val_transforms, split='test')
 
     # Wrap with Subset using split-specific indices
     train_dataset = Subset(train_base, train_idx)
