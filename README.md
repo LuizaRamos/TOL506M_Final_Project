@@ -11,7 +11,7 @@ By comparing these techniques on the same dataset, this project highlights the t
 
 ---
 
-## 🎯 Objectives
+## Objectives
 - Implement and train a CNN from scratch on a wildlife dataset  
 - Apply transfer learning and experiment with layer freezing strategies  
 - Perform zero-shot classification with SigLIP 2  
@@ -20,7 +20,7 @@ By comparing these techniques on the same dataset, this project highlights the t
 
 ---
 
-## 🦒 Dataset
+## Dataset
 The project supports multiple datasets; the experiments were run on:
 
 **Animals-10** (Kaggle)  
@@ -31,3 +31,42 @@ The project supports multiple datasets; the experiments were run on:
 
 ...
 
+## Project Structure
+
+TOL506M_Final_Project/
+│
+├── .venv/                      # Python virtual environment
+│
+├── data/                       # Data handling and augmentation
+│   ├── __init__.py
+│   ├── augmentation.py
+│   └── dataset.py
+│
+├── models/                     # Model architectures and pretrained versions
+│   ├── __init__.py
+│   ├── pretrained.py
+│   └── resnet_scratch.py
+│
+├── notebooks/                  # Jupyter notebooks (experiments, exploration)
+│
+├── results/                    # Output results, logs, and generated artifacts
+│
+├── scripts/                    # Utility Python scripts for running processes
+│   ├── learning_curves.py
+│   └── run_all.py
+│
+├── tasks/                      # Task-specific training and evaluation scripts
+│   ├── __init__.py
+│   ├── task1.py
+│   ├── task2.py
+│   └── task3.py
+│
+├── utils/                      # Helper functions and reusable modules
+│   ├── __init__.py
+│   ├── evaluation.py
+│   ├── training.py
+│   └── visualization.py
+│
+├── config.py                   # Configuration settings for the project
+├── README.md                   # Project documentation
+└── requirements.txt            # Python dependencies
