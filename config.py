@@ -2,7 +2,6 @@
 
 import torch
 from pathlib import Path
-import kagglehub
 
 class Config:
     """ Configuration class for the classification """
