@@ -10,7 +10,6 @@ from sklearn.model_selection import train_test_split
 
 import numpy as np
 from PIL import Image
-import kagglehub
 
 from data.augmentation import get_val_transforms, get_train_transforms
 
@@ -19,7 +18,7 @@ class WildlifeDataset(Dataset):
 
     def __init__(self, root_dir: str, transform=None, split: str = 'train'):
         """
-        :param root_dir: Path to the root directory of the dataset.
+        :param root_dir: Path to the root directory of the dataset class.
         :param transform: Transformation applied to each image
         :param split: 'train, 'val' or 'test'
         """
@@ -47,7 +46,7 @@ def stratified_split(dataset: WildlifeDataset,
                     train_size: float = 0.7,
                     val_size: float = 0.15,
                     test_size: float = 0.15,
-                    random_seed: int = 7278) -> tuple[Subset[Any], Subset[Any], Subset[Any]]:
+                    random_seed: int = 7278) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Perform a stratified split of a dataset, into train, validation and test sets.
     :param dataset: PyTorch dataset
@@ -59,34 +58,105 @@ def stratified_split(dataset: WildlifeDataset,
     """
     assert abs(train_size + val_size + test_size - 1.0) < 1e-6
 
+    n = len(dataset)
+    indices = np.arange(n)
+
     # Get all labels
-    labels = [label for _, label in dataset]
-    indices = np.arange(len(dataset))
+    if hasattr(dataset.dataset, 'targets'):
+        # Using ImageFolders targets (avoid reloading images)
+        labels = np.array(dataset.dataset.targets)
+    else:
+        # Fallback -> pull labels by indexing
+        labels = np.array([dataset[i][1] for i in indices])
 
     # First split -> Test and Training + Val
+    train_val_size = train_size + val_size
     train_val_indices, test_indices = train_test_split(
         indices,
-        test_size=train_size,
-        stratify=[labels[i] for i in indices],
+        test_size=test_size,
+        stratify=labels,
         random_state=random_seed
     )
 
     # Second split -> Training + Val in to different splits
-    val_size_adjusted = val_size / (train_size + val_size)
+    labels_train_val = labels[train_val_indices]
+    val_size_adjusted = int (val_size / train_val_size)
     train_indices, val_indices = train_test_split(
         train_val_indices,
         test_size=val_size_adjusted,
-        stratify=[labels[i] for i in train_val_indices],
+        stratify=labels_train_val,
         random_state=random_seed
     )
 
-    # Create subsets
-    train_dataset = Subset(dataset, train_indices)
-    val_dataset = Subset(dataset, val_indices)
-    test_dataset = Subset(dataset, test_indices)
+    return train_indices, val_indices, test_indices
 
-    return train_dataset, val_dataset, test_dataset
+def _unwrap_to_ImageFolder(ds: Any) -> datasets.ImageFolder:
+    """ Follow .dataset links until reaches an ImageFolder object. """
+    cur = ds
+    while hasattr(cur, 'dataset'):
+        cur = cur.dataset
+    return cur
 
+# Translation Functions, and Get label Function
+
+_IT2EN= {
+        "cane": "dog",
+        "cavallo": "horse",
+        "elefante": "elephant",
+        "farfalla": "butterfly",
+        "gallina": "chicken",
+        "gatto": "cat",
+        "mucca": "cow",
+        "pecora": "sheep",
+        "ragno": "spider",
+        "scoiattolo": "squirrel",
+    }
+
+_ITALIAN_NAMES = set(_IT2EN.keys())
+
+def is_italian(dataset: Any) -> bool:
+    """
+    Function that checks if a dataset has its labels in Italian,
+    based on the list of italian names for the Animals10.
+    :param dataset: PyTorch dataset, but specially the Wildlife dataset, given the dictionary used.
+    :return: True if that dataset's visible class names are italian
+    """
+    base = _unwrap_to_ImageFolder(dataset)
+    if not hasattr(base, 'classes'):
+        return False
+    names = set(map(str.lower, base.classes))
+    overlap = names & _ITALIAN_NAMES
+    return len(overlap) > 0
+
+def translate_names(dataset: Any) -> Any:
+    """
+    Translate Italian class names to English class names, inside an ImageFolder object,
+    keeping the original class order and indices stable, based on the list of italian names
+    for the Animals10.
+    :param dataset: PyTorch dataset, but specially the Wildlife dataset, given the dictionary used.
+    :return: dataset with English class names, mantling original class order and indices stable
+    """
+    base = _unwrap_to_ImageFolder(dataset)
+    if hasattr(base, 'classes') and hasattr(base, 'class_to_idx'):
+        base.classes = [_IT2EN.get(name,name) for name in base.classes]
+        base.class_to_idx = {name: idx for idx, name in enumerate(base.classes)}
+    return dataset
+
+def get_class_names(dataset: Any) -> List[str]:
+    """ Obtain the class names from a potentially nested dataset. """
+
+    base = _unwrap_to_ImageFolder(dataset)
+    if not hasattr(base, 'classes'):
+        raise AttributeError('Dataset does not contain a class attribute')
+    names = list(base.classes)
+
+    if is_italian(base):
+        names = [_IT2EN.get(name, name) for name in names]
+
+    return names
+
+
+# Data Loaders
 def get_data_loaders(data_path: str,
                      batch_size: int = 32,
                      num_workers: int = 4,
@@ -97,7 +167,7 @@ def get_data_loaders(data_path: str,
                      random_seed: int = 7278,
                      data_fraction: float = 1.0) -> Tuple[DataLoader, DataLoader, DataLoader, int]:
     """
-    Create train, validation, and test data loaders.
+    Create train, validation, and test data loaders, using stratified splits.
     :param data_path: Path to dataset
     :param batch_size: Batch size for data loaders
     :param num_workers: Number of workers for data loaders
@@ -118,41 +188,56 @@ def get_data_loaders(data_path: str,
     train_transforms = get_train_transforms(use_augmentation=use_augmentation)
     val_transform = get_val_transforms()
 
-    # Load full dataset
-    full_dataset = WildlifeDataset(data_path, transform=None)
-    num_classes = len(full_dataset.classes)
+    # Base dataset computing labels and class count
+    base_full = WildlifeDataset(data_path, transform=None)
+    num_classes = len(base_full.classes)
 
     # Perform stratified split
-    train_dataset, val_dataset, test_dataset = stratified_split(
-        full_dataset, train_split, val_split, test_split, random_seed
+    train_idx, val_idx, test_idx = stratified_split(
+        base_full, train_split, val_split, test_split, random_seed
     )
 
     # Apply data fraction to training set if needed
     if data_fraction < 1.0:
-        train_labels = [full_dataset.dataset[i][1] for i in train_dataset.indices]
-        n_samples = int(len(train_labels) * data_fraction)
+        if hasattr(base_full, 'targets'):
+            labels = np.array(base_full.dataset.targets)[train_idx]
+        else:
+            labels = np.array([base_full[i][1] for i in train_idx])
 
         # Stratified sampling
-        train_indices = train_dataset.indices
-        selected_indices, _ = train_test_split(
-            train_indices,
+        n_samples = max(1, int(len(train_idx) * data_fraction))
+        train_idx, _ = train_test_split(
+            train_idx,
             train_size=n_samples,
-            stratify=train_labels,
+            stratify=labels,
             random_state=random_seed
         )
 
-    # Apply transforms
-    train_dataset.dataset.transform = train_transforms
-    val_dataset.dataset.transform = val_transform
-    test_dataset.dataset.transform = val_transform # Does it make sense?
+    # Create one WildlifeDateset per slip to keep transforms independent
+    train_base = WildlifeDataset(data_path, transform=train_transforms, split='train')
+    val_base = WildlifeDataset(data_path, transform=train_transforms, split='val')
+    test_base = WildlifeDataset(data_path, transform=train_transforms, split='test')
+
+    # Wrap with Subset using split-specific indices
+    train_dataset = Subset(train_base, train_idx)
+    val_dataset = Subset(val_base, val_idx)
+    test_dataset = Subset(test_base, test_idx)
+
+    # If class names are still in Italian, translate them in-place for all bases
+    if is_italian(train_base):
+        translate_names(train_base)
+        translate_names(val_base)
+        translate_names(test_base)
 
     # Create data loaders
+    persistent_workers = bool(num_workers > 0)
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
-        pin_memory=True
+        pin_memory=True,
+        persistent_workers=persistent_workers
     )
 
     val_loader = DataLoader(
@@ -160,7 +245,8 @@ def get_data_loaders(data_path: str,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        pin_memory=True
+        pin_memory=True,
+        persistent_workers=persistent_workers
     )
 
     test_loader = DataLoader(
@@ -168,16 +254,8 @@ def get_data_loaders(data_path: str,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        pin_memory=True
+        pin_memory=True,
+        persistent_workers=persistent_workers
     )
 
     return train_loader, val_loader, test_loader, num_classes
-
-def get_class_names(dataset):
-    """ Obtain the class names from a potentially nested dataset. """
-    if hasattr(dataset, 'classes'):
-        return dataset.classes
-    elif hasattr(dataset, 'dataset'):
-        return get_class_names(dataset.dataset)
-    else:
-        raise TypeError('Cannot determine class name from dataset')
