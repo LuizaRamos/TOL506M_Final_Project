@@ -38,7 +38,7 @@ class WildlifeDataset(Dataset):
         img, label = self.dataset[idx]
         return img, label
 
-def stratified_split(dataset: WildlifeDataset,
+def stratified_split(dataset,
                     train_size: float = 0.7,
                     val_size: float = 0.15,
                     test_size: float = 0.15,
@@ -64,12 +64,12 @@ def stratified_split(dataset: WildlifeDataset,
     test_size = int(n * test_size)
 
     # Get all labels
-    if hasattr(dataset, 'dataset') and hasattr(dataset.dataset, 'classes'):
+    if hasattr(dataset, 'targets') and hasattr(dataset.dataset, 'targets'):
         # Using ImageFolders classes (avoid reloading images)
         labels = np.array(dataset.dataset.targets)
-    elif hasattr(dataset, 'classes'):
+    elif hasattr(dataset, 'targets'):
         # Direct access to targets
-        labels = np.array(dataset.classes)
+        labels = np.array(dataset.targets)
     else:
         # Fallback -> pull labels by indexing
         labels = np.array([dataset[i][1] for i in indices])
