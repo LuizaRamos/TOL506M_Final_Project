@@ -30,7 +30,7 @@ def train_from_scratch(config: Config = None,
     torch.manual_seed(config.RANDOM_SEED)
 
     train_loader, val_loader, test_loader, num_classes = get_data_loaders(
-        data_path=str(config.DATA_DIR / config.DATASET_NAME),
+        data_path=str(config.DATA_PATH),
         batch_size=config.BATCH_SIZE,
         num_workers=config.NUM_WORKERS,
         train_split=config.TRAIN_SPLIT,

@@ -8,9 +8,7 @@ class Config:
 
     # Project paths
     PROJECT_ROOT = Path(__file__).parent
-    # Observe that DATA_DIR bellow, is the directory where the class dataset is located,
-    # NOT the dataset itself -> To fix that the data will be copied (NOT THE BEST SOLUTION)
-    # to the dara folder
+    DATA_PATH = PROJECT_ROOT / 'data' # place holder
     DATA_DIR = PROJECT_ROOT / 'data'
     RESULTS_DIR = PROJECT_ROOT / 'results'
     MODELS_DIR = RESULTS_DIR / 'models'
