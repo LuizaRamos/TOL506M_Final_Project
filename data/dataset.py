@@ -45,22 +45,31 @@ def stratified_split(dataset: WildlifeDataset,
                     random_seed: int = 7278) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Perform a stratified split of a dataset, into train, validation and test sets.
+    First splits data into train + validation and test, then further divides train
+    into train and validation.
     :param dataset: PyTorch dataset
     :param train_size: Fraction of dataset to use for training
     :param val_size: Fraction of dataset to use for validation
     :param test_size: Fraction of dataset to use for testing
     :param random_seed: Random seed for reproducibility
-    :return: train_size, val_size, test_size
+    :return: train_indices, val_indices, test_indices
     """
     assert abs(train_size + val_size + test_size - 1.0) < 1e-6
 
     n = len(dataset)
     indices = np.arange(n)
 
+    train_size = int(n * train_size)
+    val_size = int(n * val_size)
+    test_size = int(n * test_size)
+
     # Get all labels
-    if hasattr(dataset.dataset, 'targets'):
-        # Using ImageFolders targets (avoid reloading images)
+    if hasattr(dataset, 'dataset') and hasattr(dataset.dataset, 'classes'):
+        # Using ImageFolders classes (avoid reloading images)
         labels = np.array(dataset.dataset.targets)
+    elif hasattr(dataset, 'classes'):
+        # Direct access to targets
+        labels = np.array(dataset.classes)
     else:
         # Fallback -> pull labels by indexing
         labels = np.array([dataset[i][1] for i in indices])
