@@ -50,7 +50,7 @@ def stratified_split(dataset: WildlifeDataset,
     :param val_size: Fraction of dataset to use for validation
     :param test_size: Fraction of dataset to use for testing
     :param random_seed: Random seed for reproducibility
-    :return: train_size, val_size, test_size
+    :return: train_indices, val_indices, test_indices
     """
     assert abs(train_size + val_size + test_size - 1.0) < 1e-6
 
@@ -70,22 +70,33 @@ def stratified_split(dataset: WildlifeDataset,
 
     # First split -> Test and Training + Val
     train_val_size = train_size + val_size
-    train_val_indices, test_indices = train_test_split(
-        indices,
-        test_size=test_size,
-        stratify=labels,
-        random_state=random_seed
-    )
+    
+    # Handle case where test_size is 0 or very close to 0
+    if test_size < 1e-6:
+        test_indices = np.array([], dtype=int)
+        train_val_indices = indices
+    else:
+        train_val_indices, test_indices = train_test_split(
+            indices,
+            test_size=test_size,
+            stratify=labels,
+            random_state=random_seed
+        )
 
-    # Second split -> Training + Val in to different splits
-    labels_train_val = labels[train_val_indices]
-    val_size_adjusted = val_size / train_val_size
-    train_indices, val_indices = train_test_split(
-        train_val_indices,
-        test_size=val_size_adjusted,
-        stratify=labels_train_val,
-        random_state=random_seed
-    )
+    # Second split -> Training + Val into Traning AND Val
+    # Handle case where val_size is 0 or very close to 0
+    if val_size < 1e-6:
+        train_indices = train_val_indices
+        val_indices = np.array([], dtype=int)
+    else:
+        labels_train_val = labels[train_val_indices]
+        val_size_adjusted = val_size / train_val_size
+        train_indices, val_indices = train_test_split(
+            train_val_indices,
+            test_size=val_size_adjusted,
+            stratify=labels_train_val,
+            random_state=random_seed
+        )
 
     return train_indices, val_indices, test_indices
 
