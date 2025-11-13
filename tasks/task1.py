@@ -130,9 +130,9 @@ def train_from_scratch(config: Config = None,
         if val_acc > best_val_accuracy:
             best_val_accuracy = val_acc
             if save_model:
-                save_path = config.MODELS_DIR / f"task1_scratch_bets_fraction_{data_fraction:.2f}.pth"
+                save_path = config.MODELS_DIR / f"task1_scratch_best_fraction_{data_fraction:.2f}.pth"
                 torch.save(model.state_dict(), save_path)
-                print(f"Saved best model (Val Acc: {best_val_accuracy:.2f}%).")
+                print(f"Saved best model (Val Acc: {best_val_accuracy:.2f}%) to {save_path}.")
 
         if scheduler:
             scheduler.step()
@@ -154,27 +154,28 @@ def train_from_scratch(config: Config = None,
     print(f" F1-score: {test_metrics['f1-score']:.2f}%")
 
     # Plot training curves
-    plot_path = config.PLOTS_DIR/ f"task1_scratch_learning_curves_{data_fraction:.2f}.png"
+    plot_path = config.PLOTS_DIR / f"task1_scratch_learning_curves_{data_fraction:.2f}.png"
     plot_training_curves(
-        train_losses, val_losses, train_accuracies, val_accuracies, save_path=str(plot_path)
+        train_losses, val_losses, train_accuracies, val_accuracies,
+        save_path=str(plot_path)
     )
 
-    # Save results
+    # Save results (JSON, not the model again)
     results = {
-        'data_fraction': data_fraction,
-        'training_time': training_time,
-        'best_val_accuracy': best_val_accuracy,
-        'test_metrics': test_metrics,
-        'train_losses': train_losses,
-        'val_losses': val_losses,
-        'train_accuracies': train_accuracies,
-        'val_accuracies': val_accuracies
+        "data_fraction": data_fraction,
+        "training_time": training_time,
+        "best_val_accuracy": best_val_accuracy,
+        "test_metrics": test_metrics,
+        "train_losses": train_losses,
+        "val_losses": val_losses,
+        "train_accuracies": train_accuracies,
+        "val_accuracies": val_accuracies,
     }
 
-    if save_model:
-        save_path = config.METRICS_DIR / f'task1_scratch_learning_curves_{data_fraction:.2f}.json'
-        torch.save(model.state_dict(), save_path)
-        print(f'Saved best model (Val Acc: {best_val_accuracy:.2f}%) to {save_path}.')
+    results_path = config.METRICS_DIR / f"task1_scratch_results_{data_fraction:.2f}.json"
+    with open(results_path, "w") as f:
+        json.dump(results, f, indent=4)
+    print(f"Saved metrics to {results_path}")
 
     return results
 
