@@ -9,7 +9,7 @@ def evaluate_model(
         model: nn.Module,
         dataloader: DataLoader,
         device: torch.device
-) -> Dict[str, float]:
+):
     """
     Evaluate a model on a given dataloader.
     :param model: PyTorch model.
@@ -32,12 +32,15 @@ def evaluate_model(
             all_predictions.append(predictions.cpu().numpy())
             all_targets.append(targets.cpu().numpy())
 
-    return compute_metrics(all_predictions, all_targets)
+    y_true = np.concatenate(all_targets, axis=0)
+    y_predictions = np.concatenate(all_predictions, axis=0)
+
+    return compute_metrics(y_true, y_predictions)
 
 def compute_metrics(
         targets: np.ndarray,
         predictions: np.ndarray
-) -> Dict[str, float]:
+):
     """
     Compute classification metrics on a given dataset.
     :param targets: Ground truth labels.
