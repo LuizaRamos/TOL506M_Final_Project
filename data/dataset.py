@@ -1,5 +1,8 @@
 import os
 import random
+import shutil
+import json
+import csv
 from pathlib import Path
 from typing import Tuple, Optional, Dict, List, Any
 
@@ -107,6 +110,88 @@ def _unwrap_to_imagefolder(ds: Any) -> datasets.ImageFolder:
         cur = cur.dataset
     return cur
 
+def _gather_samples(data_sample: Any) -> List[Tuple[str, int]]:
+    """
+    Gather a list of tuples from a dataset.
+    :param data_sample: ImageFolder dataset to gather samples from.
+    :return: list of filepath and labels from the dataset
+    """
+    base = _unwrap_to_imagefolder(data_sample)
+    if hasattr(base, 'samples'):
+        return list(base.samples)
+    if hasattr(base, 'imgs'):
+        return list(base.imgs)
+    raise AttributeError('Dataset does not expose samples nor images for filepaths and labels')
+
+def compute_class_counts(dataset: Any, indices: Optional[np.ndarray] = None) -> Dict[str, int]:
+    """
+    Compute class counts for a given dataset, possibly limited to a set of indices.
+    :param dataset: dataset to compute counts from.
+    :param indices: set of indices to compute counts for.
+    :return: counts per class in the dataset.
+    """
+    base = _unwrap_to_imagefolder(dataset)
+    class_names = get_class_names(dataset)
+    samples = _gather_samples(dataset)
+
+    if indices is not None:
+        samples = [samples[i] for i in indices]
+
+    counts = {name: 0 for name in class_names}
+    for _, label in samples:
+        # Translate visible names if not yet done
+        name = class_names[label]
+        if name in _ITALIAN_NAMES:
+            name = _IT2EN.get(name, name)
+        counts[name] = counts.get(name, 0) + 1
+
+    return counts
+
+def _save_link_or_copy(src: str, dst: str) -> None:
+    """
+    Create a hardlink if possible otherwise falls back and copy.
+    """
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    try:
+        # Try hardlink
+        os.link(src, dst)
+    except Exception:
+        shutil.copy2(src, dst)
+
+def materialize_split(base_dataset: Any,
+                     indices: np.ndarray,
+                     output_dir: str) -> None:
+    """ Materialize a split to out_dir with structure {class}/{filename}. """
+    samples = _gather_samples(base_dataset)
+    base = _unwrap_to_imagefolder(base_dataset)
+    class_names = list(base.classes)
+
+    # Ensure English names
+    out_class_names = [(_IT2EN.get(n, n) if n in _ITALIAN_NAMES else n) for n in class_names]
+
+    for i in indices:
+        scr_path, label = samples[i]
+        cls = out_class_names[label]
+        filename = os.path.basename(scr_path)
+        dst = os.path.join(output_dir, cls, filename)
+        _save_link_or_copy(scr_path, dst)
+
+
+# I'm saving in both csv and json to see which goes better
+def _write_counts(path: str, counts: Dict[str, int]) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    csv_path = os.path.splitext(path)[0] + '.csv'
+    with open(csv_path, 'w', newline='') as csvfile:
+        w = csv.writer(csvfile)
+        w.writerow(['class', 'count'])
+        for k, v in counts.items():
+            w.writerow([k, v])
+
+    json_path = os.path.splitext(path)[0] + '.json'
+    with open(json_path, 'w', newline='') as jsonfile:
+        json.dump(counts, jsonfile, indent=2)
+
 # Translation Functions, and Get label Function
 
 _IT2EN= {
@@ -175,7 +260,9 @@ def get_data_loaders(data_path: str,
                      test_split: float = 0.15,
                      use_augmentation: bool = True,
                      random_seed: int = 7278,
-                     data_fraction: float = 1.0) -> Tuple[DataLoader, DataLoader, DataLoader, int]:
+                     data_fraction: float = 1.0,
+                     save_processed_root: Optional[str] = None,
+                     ) -> Tuple[DataLoader, DataLoader, DataLoader, int]:
     """
     Create train, validation, and test data loaders, using stratified splits.
     :param data_path: Path to dataset
@@ -267,5 +354,41 @@ def get_data_loaders(data_path: str,
         pin_memory=True,
         persistent_workers=persistent_workers
     )
+
+    if save_processed_root is not None:
+        config_tag = (
+            f'seed{random_seed}_'
+            f'data_frac{int(data_fraction*100)}'
+        )
+
+        processed_root = Path(save_processed_root) / config_tag
+        train_dir = processed_root / 'train'
+        val_dir = processed_root / 'val'
+        test_dir = processed_root / 'test'
+
+        # Clean create
+        os.makedirs(train_dir, exist_ok=True)
+        os.makedirs(val_dir, exist_ok=True)
+        os.makedirs(test_dir, exist_ok=True)
+
+        original_base = WildlifeDataset(data_path, transform=None)
+
+        materialize_split(original_base, train_idx, str(train_dir))
+        materialize_split(original_base, val_idx, str(val_dir))
+        materialize_split(original_base, test_idx, str(test_dir))
+
+        counts_train = compute_class_counts(original_base, train_idx)
+        counts_val = compute_class_counts(original_base, val_idx)
+        counts_test = compute_class_counts(original_base, test_idx)
+
+        _write_counts(str(processed_root / 'class_count_train'), counts_train)
+        _write_counts(str(processed_root / 'class_count_val'), counts_val)
+        _write_counts(str(processed_root / 'class_count_test'), counts_test)
+
+        overall = {k: counts_train.get(k,0) + counts_val.get(k,0) + counts_test.get(k,0)
+                   for k in sorted(set(list(counts_train)+list(counts_val)+list(counts_test)))}
+
+        _write_counts(str(processed_root / 'class_counts_overall'), overall)
+
 
     return train_loader, val_loader, test_loader, num_classes
