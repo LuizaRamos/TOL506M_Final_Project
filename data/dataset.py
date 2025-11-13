@@ -4,7 +4,7 @@ import shutil
 import json
 import csv
 from pathlib import Path
-from typing import Tuple, Optional, Dict, List, Any
+from typing import Tuple, Optional, Dict, List, Any, NamedTuple
 
 import torch
 from torch.utils.data import Dataset, DataLoader, Subset
@@ -40,6 +40,11 @@ class WildlifeDataset(Dataset):
     def __getitem__(self, idx):
         img, label = self.dataset[idx]
         return img, label
+
+class SplitIndices(NamedTuple):
+    train: np.ndarray
+    val: np.ndarray
+    test: np.ndarray
 
 def stratified_split(dataset: WildlifeDataset,
                     train_size: float = 0.7,
@@ -262,6 +267,7 @@ def get_data_loaders(data_path: str,
                      random_seed: int = 7278,
                      data_fraction: float = 1.0,
                      save_processed_root: Optional[str] = None,
+                     fixed_indices: Optional[SplitIndices] = None
                      ) -> Tuple[DataLoader, DataLoader, DataLoader, int]:
     """
     Create train, validation, and test data loaders, using stratified splits.
@@ -274,6 +280,8 @@ def get_data_loaders(data_path: str,
     :param use_augmentation: Whether to use data augmentation
     :param random_seed: random seed for reproducibility
     :param data_fraction: Fraction of dataset to be split
+    :param save_processed_root: Path to save processed data
+    :param fixed_indices: Fixed indices to use for training
     :return: train_loader, val_loader, test_loader, num_classes
     """
     # Set random seed
@@ -290,23 +298,31 @@ def get_data_loaders(data_path: str,
     num_classes = len(base_full.classes)
 
     # Perform stratified split
-    train_idx, val_idx, test_idx = stratified_split(
-        base_full, train_split, val_split, test_split, random_seed
-    )
+    if fixed_indices is None:
+        train_idx, val_idx, test_idx = stratified_split(
+            base_full, train_split, val_split, test_split, random_seed
+        )
+    else:
+        train_idx = np.array(fixed_indices.train, dtype=int)
+        val_idx = np.array(fixed_indices.val, dtype=int)
+        test_idx = np.array(fixed_indices.test, dtype=int)
 
     # Apply data fraction to training set if needed
     if data_fraction < 1.0:
-        if hasattr(base_full, 'targets'):
-            labels = np.array(base_full.dataset.targets)[train_idx]
+        # labels for the base train indices
+        base = _unwrap_to_imagefolder(base_full)
+        if hasattr(base, "targets"):
+            labels_all = np.array(base.targets)
         else:
-            labels = np.array([base_full[i][1] for i in train_idx])
+            # fallback (slow but safe)
+            labels_all = np.array([base_full[i][1] for i in range(len(base_full))])
 
-        # Stratified sampling
+        labels_train = labels_all[train_idx]
         n_samples = max(1, int(len(train_idx) * data_fraction))
         train_idx, _ = train_test_split(
             train_idx,
             train_size=n_samples,
-            stratify=labels,
+            stratify=labels_train,
             random_state=random_seed
         )
 
@@ -356,23 +372,17 @@ def get_data_loaders(data_path: str,
     )
 
     if save_processed_root is not None:
-        config_tag = (
-            f'seed{random_seed}_'
-            f'data_frac{int(data_fraction*100)}'
-        )
-
+        config_tag = f'seed{random_seed}_data_frac{int(data_fraction * 100)}'
         processed_root = Path(save_processed_root) / config_tag
+
         train_dir = processed_root / 'train'
         val_dir = processed_root / 'val'
         test_dir = processed_root / 'test'
-
-        # Clean create
         os.makedirs(train_dir, exist_ok=True)
         os.makedirs(val_dir, exist_ok=True)
         os.makedirs(test_dir, exist_ok=True)
 
         original_base = WildlifeDataset(data_path, transform=None)
-
         materialize_split(original_base, train_idx, str(train_dir))
         materialize_split(original_base, val_idx, str(val_dir))
         materialize_split(original_base, test_idx, str(test_dir))
@@ -380,14 +390,11 @@ def get_data_loaders(data_path: str,
         counts_train = compute_class_counts(original_base, train_idx)
         counts_val = compute_class_counts(original_base, val_idx)
         counts_test = compute_class_counts(original_base, test_idx)
-
         _write_counts(str(processed_root / 'class_count_train'), counts_train)
         _write_counts(str(processed_root / 'class_count_val'), counts_val)
         _write_counts(str(processed_root / 'class_count_test'), counts_test)
-
-        overall = {k: counts_train.get(k,0) + counts_val.get(k,0) + counts_test.get(k,0)
-                   for k in sorted(set(list(counts_train)+list(counts_val)+list(counts_test)))}
-
+        overall = {k: counts_train.get(k, 0) + counts_val.get(k, 0) + counts_test.get(k, 0)
+                   for k in sorted(set(list(counts_train) + list(counts_val) + list(counts_test)))}
         _write_counts(str(processed_root / 'class_counts_overall'), overall)
 
 
