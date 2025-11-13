@@ -10,6 +10,7 @@ class Config:
     PROJECT_ROOT = Path(__file__).parent
     DATA_PATH = PROJECT_ROOT / 'data' # place holder
     DATA_DIR = PROJECT_ROOT / 'data'
+    PROCESSED_DIR = DATA_DIR / 'processed'
     RESULTS_DIR = PROJECT_ROOT / 'results'
     MODELS_DIR = RESULTS_DIR / 'models'
     PLOTS_DIR = RESULTS_DIR / 'plots'

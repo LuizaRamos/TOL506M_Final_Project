@@ -5,7 +5,7 @@ import time
 import json
 
 from config import Config
-from data.dataset import get_data_loaders
+from data.dataset import WildlifeDataset, SplitIndices, get_data_loaders
 from models.resnet_scratch import ResNet18Scratch, ResNet34Scratch, ResNet50Scratch, ResNet101Scratch, ResNet152Scratch
 from utils.training import train_epoch, validate, EarlyStopping
 from utils.evaluation import evaluate_model
@@ -14,13 +14,15 @@ from utils.visualization import plot_training_curves
 def train_from_scratch(config: Config = None,
                        data_fraction: float = 1.0,
                        version_RestNet: int = 18,
-                       save_model: bool = True):
+                       save_model: bool = True,
+                       fixed_indices: SplitIndices | None = None):
     """
     Train ResNet-(version_RestNet)
     :param version_RestNet: 18, 34, 50, 101 or 152.
     :param config: Configuration object.
     :param data_fraction: Fraction of training data to use.
     :param save_model: Whether to save the model.
+    :param fixed_indices: Fixed indices to use.
     :return: Dictionary with training history and metrics
     """
 
@@ -37,7 +39,9 @@ def train_from_scratch(config: Config = None,
         val_split=config.VAL_SPLIT,
         test_split=config.TEST_SPLIT,
         use_augmentation=config.USE_AUGMENTATION,
-        data_fraction=data_fraction
+        data_fraction=data_fraction,
+        save_processed_root=str(config.PROCESSED_DIR),
+        fixed_indices=fixed_indices
     )
 
     print(f"Training on {num_classes} classes.")
@@ -103,15 +107,19 @@ def train_from_scratch(config: Config = None,
 
     for epoch in range(1, config.SCRATCH_EPOCHS + 1):
         # Train
-        train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, config.DEVICE, epoch)
+        train_loss, train_acc = train_epoch(
+            model, train_loader, criterion, optimizer, config.DEVICE, epoch
+        )
 
         # Validate
-        val_loss, val_acc = validate(model, val_loader, criterion, config.DEVICE)
+        val_loss, val_acc = validate(
+            model, val_loader, criterion, config.DEVICE)
+
 
         # Record metrics
-        train_losses.append(train_losses)
+        train_losses.append(train_loss)
         train_accuracies.append(train_acc)
-        val_losses.append(val_losses)
+        val_losses.append(val_loss)
         val_accuracies.append(val_acc)
 
         print(f"\n Epoch {epoch}/{config.SCRATCH_EPOCHS}:")
@@ -163,9 +171,10 @@ def train_from_scratch(config: Config = None,
         'val_accuracies': val_accuracies
     }
 
-    result_path = config.METRICS_DIR / f'task1_scratch_learning_curves_{data_fraction:.2f}.json'
-    with open(result_path, 'w') as f:
-        json.dump(results, f, indent=4)
+    if save_model:
+        save_path = config.METRICS_DIR / f'task1_scratch_learning_curves_{data_fraction:.2f}.json'
+        torch.save(model.state_dict(), save_path)
+        print(f'Saved best model (Val Acc: {best_val_accuracy:.2f}%) to {save_path}.')
 
     return results
 
