@@ -57,7 +57,7 @@ def compute_metrics(
     return {'accuracy': accuracy * 100,
             'precision': precision * 100,
             'recall': recall * 100,
-            'f1': f1 * 100}
+            'f1-score': f1 * 100}
 
 def get_confusion_matrix(
         targets: np.ndarray,
