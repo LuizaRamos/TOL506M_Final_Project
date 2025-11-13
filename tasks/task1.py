@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import time
 import json
+from typing import Optional
 
 from config import Config
 from data.dataset import WildlifeDataset, SplitIndices, get_data_loaders
@@ -15,7 +16,7 @@ def train_from_scratch(config: Config = None,
                        data_fraction: float = 1.0,
                        version_RestNet: int = 18,
                        save_model: bool = True,
-                       fixed_indices: SplitIndices | None = None):
+                       fixed_indices: Optional[SplitIndices] = None):
     """
     Train ResNet-(version_RestNet)
     :param version_RestNet: 18, 34, 50, 101 or 152.
