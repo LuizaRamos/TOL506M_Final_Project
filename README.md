@@ -28,11 +28,11 @@ The project supports multiple datasets; the experiments were run on:
 - Moderate difficulty and balanced data distribution  
 - [Dataset link](https://www.kaggle.com/datasets/alessiocorrado99/animals10)
 
-
-...
+---
 
 ## Project Structure
 
+```
 TOL506M_Final_Project/
 │
 ├── .venv/                      # Python virtual environment
@@ -40,7 +40,8 @@ TOL506M_Final_Project/
 ├── data/                       # Data handling and augmentation
 │   ├── __init__.py
 │   ├── augmentation.py
-│   └── dataset.py
+│   ├── dataset.py
+│   └── processed/              # Data splits
 │
 ├── models/                     # Model architectures and pretrained versions
 │   ├── __init__.py
@@ -48,12 +49,14 @@ TOL506M_Final_Project/
 │   └── resnet_scratch.py
 │
 ├── notebooks/                  # Jupyter notebooks (experiments, exploration)
+│   ├── 00_data_exploration.ipynb
+│   ├── 01_task1_scratch.ipynb
+│   ├── 02_task2_finetune.ipynb
+│   ├── 03_task3_zeroshot.ipynb        
+│   ├── 04_task4_learning_curvers.ipynb
+│   └── 05_results_summary.ipynb
 │
 ├── results/                    # Output results, logs, and generated artifacts
-│
-├── scripts/                    # Utility Python scripts for running processes
-│   ├── learning_curves.py
-│   └── run_all.py
 │
 ├── tasks/                      # Task-specific training and evaluation scripts
 │   ├── __init__.py
@@ -70,3 +73,7 @@ TOL506M_Final_Project/
 ├── config.py                   # Configuration settings for the project
 ├── README.md                   # Project documentation
 └── requirements.txt            # Python dependencies
+```
+
+---
+
