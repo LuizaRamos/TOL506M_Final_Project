@@ -59,9 +59,9 @@ def train_from_scratch(config: Config = None,
         num_classes = config.NUM_CLASSES
 
     print(f"Training on {num_classes} classes.")
-    print(f"Training samples: {len(train_loader)}.")
-    print(f"Validation samples: {len(val_loader)}.")
-    print(f"Test samples: {len(test_loader)}.")
+    print(f"Training samples: {len(train_loader.dataset)}.")
+    print(f"Validation samples: {len(val_loader.dataset)}.")
+    print(f"Test samples: {len(test_loader.dataset)}.")
 
     # Models Version
 
