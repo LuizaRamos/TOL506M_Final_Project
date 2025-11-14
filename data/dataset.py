@@ -297,7 +297,7 @@ def get_data_loaders(data_path: str,
     base_full = WildlifeDataset(data_path, transform=None)
     num_classes = len(base_full.classes)
 
-    # Perform stratified split
+    # Perform stratified split if needed
     if fixed_indices is None:
         train_idx, val_idx, test_idx = stratified_split(
             base_full, train_split, val_split, test_split, random_seed
@@ -310,7 +310,8 @@ def get_data_loaders(data_path: str,
     # Apply data fraction to training set if needed
     if data_fraction < 1.0:
         # labels for the base train indices
-        base = _unwrap_to_imagefolder(base_full)
+        #base = _unwrap_to_imagefolder(base_full)
+        base = base_full.dataset
         if hasattr(base, "targets"):
             labels_all = np.array(base.targets)
         else:
@@ -325,7 +326,7 @@ def get_data_loaders(data_path: str,
             stratify=labels_train,
             random_state=random_seed
         )
-
+        
     # Create one WildlifeDateset per slip to keep transforms independent
     train_base = WildlifeDataset(data_path, transform=train_transforms, split='train')
     val_base = WildlifeDataset(data_path, transform=val_transforms, split='val')
