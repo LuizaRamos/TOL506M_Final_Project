@@ -5,9 +5,12 @@ import time
 import json
 from typing import Optional
 
+from torch.utils.data import DataLoader
+
 from config import Config
 from data.dataset import WildlifeDataset, SplitIndices, get_data_loaders
-from models.resnet_scratch import ResNet18Scratch, ResNet34Scratch, ResNet50Scratch, ResNet101Scratch, ResNet152Scratch
+from models.resnet_scratch import (ResNet18Scratch, ResNet34Scratch, ResNet50Scratch,
+                                   ResNet101Scratch, ResNet152Scratch)
 from utils.training import train_epoch, validate, EarlyStopping
 from utils.evaluation import evaluate_model
 from utils.visualization import plot_training_curves
@@ -16,7 +19,10 @@ def train_from_scratch(config: Config = None,
                        data_fraction: float = 1.0,
                        version_RestNet: int = 18,
                        save_model: bool = True,
-                       fixed_indices: Optional[SplitIndices] = None):
+                       fixed_indices: Optional[SplitIndices] = None,
+                       train_loader: Optional[DataLoader] = None,
+                       val_loader: Optional[DataLoader] = None,
+                       test_loader: Optional[DataLoader] = None):
     """
     Train ResNet-(version_RestNet)
     :param version_RestNet: 18, 34, 50, 101 or 152.
@@ -24,6 +30,9 @@ def train_from_scratch(config: Config = None,
     :param data_fraction: Fraction of training data to use.
     :param save_model: Whether to save the model.
     :param fixed_indices: Fixed indices to use.
+    :param train_loader: Training dataloader.
+    :param val_loader: Validation dataloader.
+    :param test_loader: Test dataloader.
     :return: Dictionary with training history and metrics
     """
 
@@ -32,23 +41,29 @@ def train_from_scratch(config: Config = None,
 
     torch.manual_seed(config.RANDOM_SEED)
 
-    train_loader, val_loader, test_loader, num_classes = get_data_loaders(
-        data_path=str(config.DATA_PATH),
-        batch_size=config.BATCH_SIZE,
-        num_workers=config.NUM_WORKERS,
-        train_split=config.TRAIN_SPLIT,
-        val_split=config.VAL_SPLIT,
-        test_split=config.TEST_SPLIT,
-        use_augmentation=config.USE_AUGMENTATION,
-        data_fraction=data_fraction,
-        save_processed_root=str(config.PROCESSED_DIR),
-        fixed_indices=fixed_indices
-    )
+    if train_loader is None or val_loader is None or test_loader is None:
+        # Build loaders
+        train_loader, val_loader, test_loader, num_classes = get_data_loaders(
+                data_path=str(config.DATA_PATH),
+                batch_size=config.BATCH_SIZE,
+                num_workers=config.NUM_WORKERS,
+                train_split=config.TRAIN_SPLIT,
+                val_split=config.VAL_SPLIT,
+                test_split=config.TEST_SPLIT,
+                use_augmentation=config.USE_AUGMENTATION,
+                data_fraction=data_fraction,
+                save_processed_root=str(config.PROCESSED_DIR),
+                fixed_indices=fixed_indices
+        )
+    else:
+        num_classes = config.NUM_CLASSES
 
     print(f"Training on {num_classes} classes.")
     print(f"Training samples: {len(train_loader)}.")
     print(f"Validation samples: {len(val_loader)}.")
     print(f"Test samples: {len(test_loader)}.")
+
+    # Models Version
 
     if version_RestNet == 18:
         model = ResNet18Scratch(num_classes=num_classes).to(config.DEVICE)
@@ -108,13 +123,11 @@ def train_from_scratch(config: Config = None,
 
     for epoch in range(1, config.SCRATCH_EPOCHS + 1):
         # Train
-        train_loss, train_acc = train_epoch(
-            model, train_loader, criterion, optimizer, config.DEVICE, epoch
-        )
+        train_loss, train_acc = train_epoch(model, train_loader, criterion,
+                                            optimizer, config.DEVICE, epoch)
 
         # Validate
-        val_loss, val_acc = validate(
-            model, val_loader, criterion, config.DEVICE)
+        val_loss, val_acc = validate(model, val_loader, criterion, config.DEVICE)
 
 
         # Record metrics
