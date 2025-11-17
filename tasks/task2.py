@@ -140,7 +140,7 @@ def fine_tune_pretrained(config: Config = None,
     print(f" Accuracy: {test_metrics['accuracy']:.2f}%")
     print(f" Precision: {test_metrics['precision']:.2f}%")
     print(f" Recall: {test_metrics['recall']:.2f}%")
-    print(f" F1-score: {test_metrics['f1-score']:.2f}%")
+    print(f" F1-score: {test_metrics['f1_score']:.2f}%")
 
     # Plot training curve
     plot_path = config.PLOTS_DIR / f"task2_fine_tuned_{data_fraction:.2f}.png"
