@@ -3,22 +3,32 @@ import torch.nn as nn
 import torch.optim as optim
 import time
 import json
+from typing import Optional
+from torch.utils.data import DataLoader
 
 from config import Config
-from data.dataset import get_data_loaders
+from data.dataset import WildlifeDataset, SplitIndices, get_data_loaders
 from models.pretrained import get_pretrained_model
 from utils.training import train_epoch, validate, EarlyStopping
 from utils.evaluation import evaluate_model
 from utils.visualization import plot_training_curves
 
-def fine_tune_pretrained(config: Config,
+def fine_tune_pretrained(config: Config = None,
                          data_fraction: float = 1.0,
-                         save_mode: bool = True):
+                         save_mode: bool = True,
+                         fixed_indices: Optional[SplitIndices] = None,
+                         train_loader : Optional[DataLoader] = None,
+                         val_loader: Optional[DataLoader] = None,
+                         test_loader: Optional[DataLoader] = None):
     """
     Fine-tune a pretrained ResNet model
     :param config: Configuration object
     :param data_fraction: Fraction of data to be used
     :param save_mode: Whether to save the model or not
+    :param fixed_indices: Fixed indices to use.
+    :param train_loader: Training dataloader.
+    :param val_loader: Validation dataloader.
+    :param test_loader: Test dataloader.
     :return: Dictionary with training history and metrics
     """
 
@@ -29,21 +39,27 @@ def fine_tune_pretrained(config: Config,
     torch.manual_seed(config.RANDOM_SEED)
 
     # Prepare data loaders
-    train_loader, val_loader, test_loader, num_classes = get_data_loaders(
-        data_path=str(config.DATA_DIR / config.DATASET_NAME),
-        batch_size=config.BATCH_SIZE,
-        num_workers=config.NUM_WORKERS,
-        train_split=config.TRAIN_SPLIT,
-        val_split=config.VAL_SPLIT,
-        test_split=config.TEST_SPLIT,
-        use_augmentation=config.USE_AUGMENTATION,
-        data_fraction=data_fraction
-    )
+    if train_loader is None or val_loader is None or test_loader is None:
+        # Build loaders
+        train_loader, val_loader, test_loader, num_classes = get_data_loaders(
+                data_path=str(config.DATA_PATH),
+                batch_size=config.BATCH_SIZE,
+                num_workers=config.NUM_WORKERS,
+                train_split=config.TRAIN_SPLIT,
+                val_split=config.VAL_SPLIT,
+                test_split=config.TEST_SPLIT,
+                use_augmentation=config.USE_AUGMENTATION,
+                data_fraction=data_fraction,
+                save_processed_root=str(config.PROCESSED_DIR),
+                fixed_indices=fixed_indices
+        )
+    else:
+        num_classes = config.NUM_CLASSES
 
     print(f"Training on {num_classes} classes.")
-    print(f"Training samples: {len(train_loader)}.")
-    print(f"Validation samples: {len(val_loader)}.")
-    print(f"Test samples: {len(test_loader)}.")
+    print(f"Training samples: {len(train_loader.dataset)}.")
+    print(f"Validation samples: {len(val_loader.dataset)}.")
+    print(f"Test samples: {len(test_loader.dataset)}.")
 
     model = get_pretrained_model(
         num_classes=num_classes,

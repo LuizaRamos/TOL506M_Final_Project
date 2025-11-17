@@ -64,7 +64,6 @@ def train_from_scratch(config: Config = None,
     print(f"Test samples: {len(test_loader.dataset)}.")
 
     # Models Version
-
     if version_RestNet == 18:
         model = ResNet18Scratch(num_classes=num_classes).to(config.DEVICE)
         print("Model ResNet-18 from scratch.")
@@ -128,7 +127,6 @@ def train_from_scratch(config: Config = None,
 
         # Validate
         val_loss, val_acc = validate(model, val_loader, criterion, config.DEVICE)
-
 
         # Record metrics
         train_losses.append(train_loss)
