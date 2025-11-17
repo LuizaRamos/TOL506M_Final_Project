@@ -5,32 +5,43 @@ import numpy as np
 from tqdm import tqdm
 import time
 import json
+from typing import Optional
+from torch.utils.data import DataLoader
 
 from config import Config
-from data.dataset import get_data_loaders, get_class_names
+from data.dataset import SplitIndices, get_data_loaders, get_class_names
 from utils import compute_metrics
 
-def zero_shot_classification(config: Config = None):
+def zero_shot_classification(config: Config = None,
+                             fixed_indices: Optional[SplitIndices] = None,
+                             test_loader: Optional[DataLoader] = None):
     """
     Perform Zero-Shot classification task using SigLIP2
     :param config: Configuration object
+    :param fixed_indices: Fixed indices to use.
+    :param test_loader: Test data loader
     :return: Dictionary with evaluation metrics
     """
 
     if config is None:
         config = Config()
 
-    # Load test set data
-    _, _, test_loader, num_classes = get_data_loaders(
-        data_path=str(config.DATA_DIR / config.DATASET_NAME),
-        batch_size=config.BATCH_SIZE,
-        num_workers=config.NUM_WORKERS,
-        train_split=config.TRAIN_SPLIT,
-        val_split=config.VAL_SPLIT,
-        test_split=config.TEST_SPLIT,
-        use_augmentation=False,
-        random_seed=config.RANDOM_SEED
-    )
+    if test_loader is None:
+        # Load test set data
+        _, _, test_loader, num_classes = get_data_loaders(
+            data_path=str(config.DATA_PATH),
+            batch_size=config.BATCH_SIZE,
+            num_workers=config.NUM_WORKERS,
+            train_split=config.TRAIN_SPLIT,
+            val_split=config.VAL_SPLIT,
+            test_split=config.TEST_SPLIT,
+            use_augmentation=config.USE_AUGMENTATION,
+            data_fraction=1.0,
+            save_processed_root=str(config.PROCESSED_DIR),
+            fixed_indices=fixed_indices
+        )
+    else:
+        num_classes = config.NUM_CLASSES
 
     class_names = get_class_names(test_loader.dataset)
 
@@ -83,7 +94,7 @@ def zero_shot_classification(config: Config = None):
             # It is needed to denormalize and convert back to PIL
             images_pil = []
             for img_tensor in images:
-                # Denormalizing
+                # De-normalizing
                 mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
                 std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
                 img_tensor = img_tensor * std + mean
