@@ -69,7 +69,7 @@ def zero_shot_classification(config: Config = None,
     model.eval()
     with torch.no_grad():
         for batch in tqdm(test_loader, desc='Evaluating'):
-            images, labels = batch['image'], batch['label']
+            images, labels = batch
             images = images.to(device)
             all_labels.append(labels.to(device))
 
