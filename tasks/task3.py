@@ -59,7 +59,7 @@ def zero_shot_classification(config: Config = None,
     # Generate text features for each class label
     text_inputs = processor(text = class_names, padding = True, return_tensors = 'pt').to(device)
     text_features = model.get_text_features(**text_inputs)
-    text_outputs = text_features / text_features.norm(p=2, dim=-1, keepdim=True)
+    text_features = text_features / text_features.norm(p=2, dim=-1, keepdim=True)
 
     all_predictions = []
     all_labels = []
