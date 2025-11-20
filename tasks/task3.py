@@ -1,8 +1,9 @@
 import torch
-from transformers import AutoProcessor, AutoModel
+from transformers import AutoProcessor
+from transformers import AutoModelForZeroShotImageClassification as autoModel
 from PIL import Image
 import numpy as np
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import time
 import json
 from typing import Optional
@@ -10,7 +11,8 @@ from torch.utils.data import DataLoader
 
 from config import Config
 from data.dataset import SplitIndices, get_data_loaders, get_class_names
-from utils import compute_metrics
+from utils.evaluation import compute_metrics, get_confusion_matrix
+from utils.visualization import plot_confusion_matrix
 
 def zero_shot_classification(config: Config = None,
                              fixed_indices: Optional[SplitIndices] = None,
@@ -25,6 +27,14 @@ def zero_shot_classification(config: Config = None,
 
     if config is None:
         config = Config()
+
+    device = config.DEVICE
+
+    model_name = 'google/siglip-base-patch16-224'
+    processor = AutoProcessor.from_pretrained(model_name)
+    model = autoModel.from_pretrained(model_name).to(device)
+
+    print(f'Model Loaded: {model_name}')
 
     if test_loader is None:
         # Load test set data
@@ -44,91 +54,44 @@ def zero_shot_classification(config: Config = None,
         num_classes = config.NUM_CLASSES
 
     class_names = get_class_names(test_loader.dataset)
-
     print(f"Classes: {class_names}")
 
-    device = config.DEVICE
-
-    try:
-        processor = AutoProcessor.from_pretrained(config.SIGLIP_MODEL)
-        model = AutoModel.from_pretrained(config.SIGLIP_MODEL).to(device)
-        model.eval()
-        print(f"Model loaded: {config.SIGLIP_MODEL}")
-    except Exception as e:
-        print(f"Error Loading SigLIP model: {e}")
-        print("Falling back to CLIP...")
-        from transformers import CLIPModel, CLIPProcessor
-        processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-        model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
-        model.eval()
-
-    text_prompts = []
-    for class_name in class_names:
-        class_prompts = [template.format(class_name)
-                         for template in config.ZERO_SHOT_PROMPTS]
-        text_prompts.append(class_prompts)
-
-    all_text_embeddings = []
-    for class_prompts in text_prompts:
-        inputs = processor(text=class_prompts, return_tensors="pt", padding=True)
-        inputs = {k: v.to(device) for k, v in inputs.items()}
-
-        with torch.no_grad():
-            if hasattr(model, "get_text_features"):
-                text_features = model.get_text_features(**inputs)
-            else:
-                text_features = model.get_text_features(**inputs).pooler_output
-        text_embeddings = text_features.mean(dim=0)
-        all_text_embeddings.append(text_embeddings)
-
-    text_embeddings = torch.stack(all_text_embeddings)
+    # Generate text features for each class label
+    text_inputs = processor(text = class_names, padding = True, return_tensors = 'pt').to(device)
+    text_features = model.get_text_features(**text_inputs)
+    text_outputs = text_features / text_features.norm(p=2, dim=-1, keepdim=True)
 
     all_predictions = []
-    all_targets = []
+    all_labels = []
 
     start_time = time.time()
 
+    model.eval()
     with torch.no_grad():
-        for images, labels in tqdm(test_loader, desc="Evaluating"):
-            # Process images
-            # It is needed to denormalize and convert back to PIL
-            images_pil = []
-            for img_tensor in images:
-                # De-normalizing
-                mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
-                std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
-                img_tensor = img_tensor * std + mean
-                img_tensor = torch.clamp(img_tensor, 0, 1)
+        for batch in tqdm(test_loader, desc='Evaluating'):
+            images, labels = batch['image'], batch['label']
+            images = images.to(device)
+            all_labels.append(labels.to(device))
 
-                # Convert back to PIL
-                img_np = (img_tensor.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
-                images_pil.append(Image.fromarray(img_np))
+            inputs = processor(images=images, return_tensors='pt').to(device)
 
-            # Processing with SigLIP or CLIP
-            inputs = processor(images=images_pil, return_tensors="pt", padding=True)
-            inputs = {k: v.to(device) for k, v in inputs.items() if k != 'text'}
-
-            # Gets image embeddings
-            if hasattr(model, "get_text_features"):
+            if hasattr(model, 'get_text_features'):
                 image_features = model.get_text_features(**inputs)
             else:
-                image_features = model.get_text_features(**inputs).pooler_output
+                raise AttributeError('Model does not have text features.')
 
-            # Compute similarities
-            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-            text_features_norm = text_embeddings / text_embeddings.norm(dim=-1, keepdim=True)
+            image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
 
-            similarities = image_features @ text_features_norm.T
-            predictions = similarities.argmax(dim=-1)
-
+            logits_per_image = (image_features @ text_features.T) * model.config.temperature
+            probs = logits_per_image.softmax(dim=-1)
+            predictions = probs.argmax(probs, dim=-1)
             all_predictions.extend(predictions.cpu().numpy())
-            all_targets.extend(labels.cpu().numpy())
 
     inference_time = time.time() - start_time
-    print(f"Inference completed in: {inference_time:.2f} seconds.")
 
-    # Compute results
-    metrics = compute_metrics(np.array(all_targets), np.array(all_predictions))
+    # Calculate metrics
+    metrics = compute_metrics(np.array(all_predictions), np.array(all_labels))
+    confusion_matrix = get_confusion_matrix(np.array(all_predictions), np.array(all_labels), num_classes)
 
     # Report results
     print(f"\nZero-Shot Test Results:")
@@ -142,8 +105,13 @@ def zero_shot_classification(config: Config = None,
         'inference_time': inference_time,
         'test_metrics': metrics,
         'num_prompts_per_class': len(config.ZERO_SHOT_PROMPTS),
-        'prompts': config.ZERO_SHOT_PROMPTS
+        'prompts': config.ZERO_SHOT_PROMPTS,
+        'confusion_matrix': confusion_matrix
     }
+
+    # Confusion Matrix
+    plot_path = config.PLOTS_DIR / f"task3_zero_shot_classification.png"
+    plot_confusion_matrix(confusion_matrix, class_names, plot_path)
 
     results_path = config.RESULTS_DIR / f'task3_zero_shot.json'
     with open(results_path, 'w') as f:
