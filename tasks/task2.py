@@ -32,6 +32,7 @@ def fine_tune_pretrained(config: Config = None,
     :param train_loader: Training dataloader.
     :param val_loader: Validation dataloader.
     :param test_loader: Test dataloader.
+    :param freeze_mode: Whether to freeze the model, and in what way.
     :return: Dictionary with training history and metrics
     """
 
@@ -168,7 +169,6 @@ def fine_tune_pretrained(config: Config = None,
             'lr': config.FINETUNE_LR,
             'weight_decay': config.FINETUNE_WEIGHT_DECAY,
             'epochs': config.FINETUNE_EPOCHS,
-            'early_stopping': early_stopping,
             'freeze_layers': freeze_mode,
             "data_augmentation": config.USE_AUGMENTATION,
             "splits": {
