@@ -4,13 +4,14 @@ from torchvision import models
 
 def get_pretrained_model(num_classes: int,
                          model_name: str = 'resnet18',
-                         freeze_until_layer: int = None):
+                         freeze_until_layer: str = None):
     """
     Load a pretrained model and modify for target task.
 
     :param num_classes: Number of output classes.
     :param model_name: Name of the pretrained model.
-    :param freeze_until_layer: Freeze layers until this index, None indicate to train all.
+    :param freeze_until_layer: Freeze layers until a certain layer
+            (None, 'all_but_fc', 'up_to_layer1', 'up_to_layer2', 'up_to_layer3').
     :return: Modified pretrained model.
     """
 
@@ -28,39 +29,48 @@ def get_pretrained_model(num_classes: int,
     else:
         raise ValueError(f'Unsupported model name: {model_name}')
 
-    # Freeze layer if freeze_until_layer != None
-    if freeze_until_layer is not None:
-        freeze_layer(model, freeze_until_layer)
+    # Freeze layers according to strategy
+    freeze_backbone(model, freeze_until_layer)
 
-    # Replace predicted classification layer
-    if hasattr(model, 'fc'):
-        num_features = model.fc.in_features
-        model.fc = nn.Linear(num_features, num_classes)
+    # Replace final layer
+    num_feats = model.fc.in_features
+    model.fc = nn.Linear(num_feats, num_classes)
 
     return model
 
-def freeze_layer(model: nn.Module, freeze_until_layer: int):
+def freeze_backbone(model: nn.Module, freeze_mode: str):
     """
-    Freeze model layers for transfer learning.
-
-    :param model: Model to freeze.
-    :param freeze_until_layer: Freeze layers until this index.
+    freeze_mode options:
+        - None: train everything
+        - 'all_but_fc': freeze entire backbone, train only final classifier
+        - 'up_to_layer1': freeze conv1, bn1, layer1
+        - 'up_to_layer2': freeze conv1, bn1, layer1, layer2
+        - 'up_to_layer3': freeze conv1, bn1, layer1, layer2, layer3
     """
 
-    if freeze_until_layer is None:
-        # Freeze all layers, except the final classifier one.
-        for name, param in model.named_parameters():
-            if 'fc' not in name:
-                param.requires_grad = False
+    if freeze_mode is None:
+        # Unfreeze everything
+        for p in model.parameters():
+            p.requires_grad = True
+        return
+
+    if freeze_mode in ['all_but_fc']:
+        freeze_modules = ['conv1', 'bn1', 'layer1', 'layer2', 'layer3', 'layer4']
+
+    elif freeze_mode == 'up_to_layer1':
+        freeze_modules = ['conv1', 'bn1', 'layer1']
+
+    elif freeze_mode == 'up_to_layer2':
+        freeze_modules = ['conv1', 'bn1', 'layer1', 'layer2']
+
+    elif freeze_mode == 'up_to_layer3':
+        freeze_modules = ['conv1', 'bn1', 'layer1', 'layer2', 'layer3']
+
     else:
-        # Freeze specific layer
-        layer_count = 0
-        for name, param in model.named_parameters():
-            if layer_count < freeze_until_layer:
-                param.requires_grad = False
-            layer_count += 1
+        raise ValueError(f"Unknown freeze_mode: {freeze_mode}")
 
-def unfreeze_layers(model):
-    """ Unfreeze layers until they are frozen. """
-    for param in model.parameters():
-        param.requires_grad = True
+    # Apply freezing
+    for name, param in model.named_parameters():
+        if any(name.startswith(m) for m in freeze_modules):
+            param.requires_grad = False
+

@@ -182,6 +182,25 @@ def train_from_scratch(config: Config = None,
         "val_losses": val_losses,
         "train_accuracies": train_accuracies,
         "val_accuracies": val_accuracies,
+        "hyperparameters": {
+            "version_ResNet": version_RestNet,
+            "batch_size": config.BATCH_SIZE,
+            "optimizer": "SGD",
+            "lr": config.SCRATCH_LR,
+            "momentum": config.SCRATCH_MOMENTUM,
+            "weight_decay": config.SCRATCH_WEIGHT_DECAY,
+            "epochs": config.SCRATCH_EPOCHS,
+            "early_stopping_patience": config.SCRATCH_EARLY_STOPPING_PATIENCE,
+            "lr_scheduler": config.LR_SCHEDULER,
+            "lr_step_size": config.LR_STEP_SIZE,
+            "lr_gamma": config.LR_GAMMA,
+            "data_augmentation": config.USE_AUGMENTATION,
+            "splits": {
+                "train": config.TRAIN_SPLIT,
+                "val": config.VAL_SPLIT,
+                "test": config.TEST_SPLIT,
+            },
+        },
     }
 
     results_path = config.METRICS_DIR / f"task1_scratch_results_{data_fraction:.2f}.json"

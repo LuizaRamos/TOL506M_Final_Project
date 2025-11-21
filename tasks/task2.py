@@ -4,6 +4,8 @@ import torch.optim as optim
 import time
 import json
 from typing import Optional
+
+from torch.fx.experimental.unification.utils import freeze
 from torch.utils.data import DataLoader
 
 from config import Config
@@ -19,7 +21,8 @@ def fine_tune_pretrained(config: Config = None,
                          fixed_indices: Optional[SplitIndices] = None,
                          train_loader : Optional[DataLoader] = None,
                          val_loader: Optional[DataLoader] = None,
-                         test_loader: Optional[DataLoader] = None):
+                         test_loader: Optional[DataLoader] = None,
+                         freeze_mode: str = None):
     """
     Fine-tune a pretrained ResNet model
     :param config: Configuration object
@@ -64,7 +67,7 @@ def fine_tune_pretrained(config: Config = None,
     model = get_pretrained_model(
         num_classes=num_classes,
         model_name='resnet18',
-        freeze_until_layer=config.FREEZE_UNTIL_LAYER,
+        freeze_until_layer=freeze_mode
     ).to(config.DEVICE)
 
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -157,7 +160,23 @@ def fine_tune_pretrained(config: Config = None,
         'train_losses': train_losses,
         'val_losses': val_losses,
         'train_accuracies': train_accuracies,
-        'val_accuracies': val_accuracies
+        'val_accuracies': val_accuracies,
+        'hyperparameters': {
+            'model_name': 'resnet18',
+            'batch_size': config.BATCH_SIZE,
+            'optimizer': 'Adam',
+            'lr': config.FINETUNE_LR,
+            'weight_decay': config.FINETUNE_WEIGHT_DECAY,
+            'epochs': config.FINETUNE_EPOCHS,
+            'early_stopping': early_stopping,
+            'freeze_layers': freeze_mode,
+            "data_augmentation": config.USE_AUGMENTATION,
+            "splits": {
+                "train": config.TRAIN_SPLIT,
+                "val": config.VAL_SPLIT,
+                "test": config.TEST_SPLIT
+            }
+        }
     }
 
     result_path = config.METRICS_DIR / f'task2_fine_tuned_{data_fraction:.2f}.json'
