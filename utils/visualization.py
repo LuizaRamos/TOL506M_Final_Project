@@ -88,12 +88,14 @@ def plot_learning_curves(
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.show()
 
-def plot_confusion_matrix(cm: np.ndarray, class_names: List[str], save_path: str = None):
+def plot_confusion_matrix(cm: np.ndarray, class_names: List[str],
+                          save_path: str = None, show: bool = True):
     """
     Plot confusion matrix.
     :param cm: Confusion matrix.
     :param class_names: List of class names.
     :param save_path: path to save the figure.
+    :param show: Show or not plot.
     """
 
     plt.figure(figsize=(12, 4))
@@ -109,4 +111,6 @@ def plot_confusion_matrix(cm: np.ndarray, class_names: List[str], save_path: str
 
     if save_path is not None:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    plt.show()
+
+    if show:
+        plt.show()

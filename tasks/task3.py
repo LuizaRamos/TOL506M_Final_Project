@@ -85,7 +85,7 @@ def zero_shot_classification(
 
     device = config.DEVICE
 
-    # --- Load SigLIP 2 model + processor from config ---
+    # Load SigLIP 2 model + processor from config
     model_name = 'google/siglip2-base-patch16-224'
     model = AutoModel.from_pretrained(model_name)
     model = model.to(device)
@@ -94,7 +94,7 @@ def zero_shot_classification(
 
     print(f"Model Loaded: {model_name}")
 
-    # --- Data loaders ---
+    # Data loaders
     need_loaders = (
         test_loader is None
         or (train_linear_probe and (train_loader is None or val_loader is None))
@@ -122,7 +122,7 @@ def zero_shot_classification(
     else:
         num_classes = config.NUM_CLASSES
 
-    # --- Class names and prompts ---
+    # Class names and prompts
     class_names = get_class_names(test_loader.dataset)
     print(f"Classes: {class_names}")
 
@@ -134,7 +134,7 @@ def zero_shot_classification(
     for cls, prompts in zip(class_names, prompts_per_class):
         print(f"  {cls}: {prompts}")
 
-    # --- Text encoding: average prompts per class ---
+    # Text encoding: average prompts per class
     text_inputs = processor(
         text=flat_prompts,
         padding=True,
@@ -159,7 +159,7 @@ def zero_shot_classification(
         p=2, dim=-1, keepdim=True
     )
 
-    # --- ZERO-SHOT EVALUATION ---
+    # ZERO-SHOT EVALUATION
     all_predictions = []
     all_labels = []
 
@@ -206,7 +206,11 @@ def zero_shot_classification(
 
     # Plot zero-shot confusion matrix
     plot_path = config.PLOTS_DIR / "task3_zero_shot_classification.png"
-    plot_confusion_matrix(zero_shot_conf_mat, class_names, plot_path)
+    plot_confusion_matrix(zero_shot_conf_mat, class_names, plot_path, show=False)
+
+    # print a plain-text confusion matrix (to avoid problem with GitHub rendition)
+    print("\nZero-Shot Confusion Matrix (rows = true, cols = pred):")
+    print(zero_shot_conf_mat)
 
     # --- OPTIONAL: LINEAR PROBE ON TOP OF SIGLIP FEATURES (NOT ZERO-SHOT) ---
     linear_probe_results = None
