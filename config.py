@@ -32,7 +32,7 @@ class Config:
 
     # Training configuration
     BATCH_SIZE = 64
-    NUM_WORKERS = 4
+    NUM_WORKERS = 2      # Amount recommended by Google Colab
     PIN_MEMORY = True
     NUM_EPOCHS = 10
 
