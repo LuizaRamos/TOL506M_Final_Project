@@ -353,7 +353,7 @@ def zero_shot_classification(
         print(f"  F1-Score:  {lp_metrics['f1_score']:.2f}%")
 
         plot_path_lp = config.PLOTS_DIR / "task3_linear_probe_confusion_matrix.png"
-        plot_confusion_matrix(lp_conf_mat, class_names, plot_path_lp)
+        plot_confusion_matrix(lp_conf_mat, class_names, plot_path_lp, show=False)
 
         linear_probe_results = {
             "training_time": lp_training_time,
@@ -369,7 +369,7 @@ def zero_shot_classification(
             },
         }
 
-    # --- Save all results ---
+    # Save all results
     results = {
         "zero_shot": {
             "inference_time": zero_shot_inference_time,
