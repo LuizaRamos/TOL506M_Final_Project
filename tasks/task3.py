@@ -1,48 +1,107 @@
 import torch
-from transformers import AutoProcessor, SiglipModel
-from PIL import Image
+import torch.nn as nn
+from transformers import AutoProcessor, AutoModel
 import numpy as np
 from tqdm.auto import tqdm
 import time
 import json
 from typing import Optional
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, TensorDataset
 
 from config import Config
 from data.dataset import SplitIndices, get_data_loaders, get_class_names
 from utils.evaluation import compute_metrics, get_confusion_matrix
 from utils.visualization import plot_confusion_matrix
+from utils.training import EarlyStopping
+
+
+def build_prompts_for_classes(class_names, config: Config):
+    """
+    Helper function that builds a list of prompts for a given set of classes.
+    :param class_names: class names.
+    :param config: config object.
+    Returns:
+      prompts_per_class: list[list[str]] list of prompts for each class
+      flat_prompts: flattened list of all prompts
+      class_indices: list of (start, end) indices in flat_prompts for each class.
+    """
+    prompts_per_class = []
+    for cls in class_names:
+        if config.ZERO_SHOT_PROMPTS and cls in config.ZERO_SHOT_PROMPTS:
+            prompts = config.ZERO_SHOT_PROMPTS[cls]
+        else:
+            # fallback template
+            prompts = [f"a photo of a {cls}"]
+        prompts_per_class.append(prompts)
+
+    flat_prompts = []
+    class_indices = []
+    idx = 0
+    for prompts in prompts_per_class:
+        start = idx
+        flat_prompts.extend(prompts)
+        idx += len(prompts)
+        end = idx
+        class_indices.append((start, end))
+
+    return prompts_per_class, flat_prompts, class_indices
 
 
 def zero_shot_classification(
     config: Config = None,
     fixed_indices: Optional[SplitIndices] = None,
     test_loader: Optional[DataLoader] = None,
+    train_loader: Optional[DataLoader] = None,
+    val_loader: Optional[DataLoader] = None,
+    train_linear_probe: Optional[bool] = None,
 ):
     """
-    Perform Zero-Shot classification task using SigLIP
+    Task 3: Zero-Shot classification with SigLIP 2 + optional linear probe.
+
+    Zero-shot part:
+      - Uses SigLIP2 image & text encoders.
+      - Uses prompts per class from config.ZERO_SHOT_PROMPTS.
+      - NO training on your dataset (true zero-shot).
+
+    Linear probe (optional, NOT zero-shot):
+      - Trains a logistic regression head on frozen SigLIP2 embeddings.
+      - Intended for Task 4 to compare data efficiency vs Tasks 1 & 2.
+
     :param config: Configuration object
-    :param fixed_indices: Fixed indices to use.
-    :param test_loader: Test data loader (should return images in [0, 1] without normalization)
-    :return: Dictionary with evaluation metrics
+    :param fixed_indices: Fixed indices to use (for reproducible splits)
+    :param test_loader: Test loader with images in [0, 1], Resize+ToTensor only
+    :param train_loader: Train loader (same preprocessing as test_loader)
+    :param val_loader: Validation loader
+    :param train_linear_probe: if True, trains linear probe on SigLIP features
+    :return: Dict with zero-shot metrics + optional linear-probe metrics
     """
 
     if config is None:
         config = Config()
 
+    # Default to config flag if not passed
+    if train_linear_probe is None:
+        train_linear_probe = config.SIGLIP_LINEAR_PROBE
+
     device = config.DEVICE
 
-    model_name = "google/siglip-base-patch16-224"
+    # --- Load SigLIP 2 model + processor from config ---
+    model_name = 'google/siglip2-base-patch16-224'
+    model = AutoModel.from_pretrained(model_name)
+    model = model.to(device)
     processor = AutoProcessor.from_pretrained(model_name)
-    model = SiglipModel.from_pretrained(model_name).to(device)
+    model.eval()
 
     print(f"Model Loaded: {model_name}")
 
-    # If no loader is provided, fall back to project helper.
-    # IMPORTANT: for best results in this task, pass a test_loader that uses
-    # only Resize + ToTensor (no Normalize), as you did in the notebook.
-    if test_loader is None:
-        _, _, test_loader, num_classes = get_data_loaders(
+    # --- Data loaders ---
+    need_loaders = (
+        test_loader is None
+        or (train_linear_probe and (train_loader is None or val_loader is None))
+    )
+
+    if need_loaders:
+        train_, val_, test_, num_classes = get_data_loaders(
             data_path=str(config.DATA_PATH),
             batch_size=config.BATCH_SIZE,
             num_workers=config.NUM_WORKERS,
@@ -54,42 +113,68 @@ def zero_shot_classification(
             save_processed_root=str(config.PROCESSED_DIR),
             fixed_indices=fixed_indices,
         )
+        if train_loader is None:
+            train_loader = train_
+        if val_loader is None:
+            val_loader = val_
+        if test_loader is None:
+            test_loader = test_
     else:
         num_classes = config.NUM_CLASSES
 
-    # Class names used as text prompts
+    # --- Class names and prompts ---
     class_names = get_class_names(test_loader.dataset)
     print(f"Classes: {class_names}")
 
-    # text encoding
+    prompts_per_class, flat_prompts, class_indices = build_prompts_for_classes(
+        class_names, config
+    )
+
+    print("Using prompts per class:")
+    for cls, prompts in zip(class_names, prompts_per_class):
+        print(f"  {cls}: {prompts}")
+
+    # --- Text encoding: average prompts per class ---
     text_inputs = processor(
-        text=class_names,
+        text=flat_prompts,
         padding=True,
         return_tensors="pt",
     ).to(device)
 
     with torch.no_grad():
-        text_features = model.get_text_features(**text_inputs)
-    text_features = text_features / text_features.norm(p=2, dim=-1, keepdim=True)
+        text_features_all = model.get_text_features(**text_inputs)
 
-    # image encoding and zero-shot predictions
+    text_features_all = text_features_all / text_features_all.norm(
+        p=2, dim=-1, keepdim=True
+    )
+
+    # Average prompt embeddings to get a single prototype per class
+    class_text_features = []
+    for (start, end) in class_indices:
+        feats = text_features_all[start:end]  # (num_prompts_for_class, dim)
+        class_text_features.append(feats.mean(dim=0))
+
+    class_text_features = torch.stack(class_text_features, dim=0)  # (num_classes, dim)
+    class_text_features = class_text_features / class_text_features.norm(
+        p=2, dim=-1, keepdim=True
+    )
+
+    # --- ZERO-SHOT EVALUATION ---
     all_predictions = []
     all_labels = []
 
     start_time = time.time()
-    model.eval()
 
     with torch.no_grad():
-        for images, labels in tqdm(test_loader, desc="Evaluating"):
-            # images: batch of tensors in [0, 1] (Resize + ToTensor, no Normalize)
+        for images, labels in tqdm(test_loader, desc="Zero-shot evaluating"):
             images = images.to(device)
             all_labels.append(labels.cpu().numpy())
 
-            # Let the SigLIP processor handle resizing/normalization; avoid double rescale
+            # images already in [0,1]; let processor normalize/resize
             inputs = processor(
-                images=list(images),       # list of tensors
+                images=list(images),
                 return_tensors="pt",
-                do_rescale=False,          # already in [0, 1]
+                do_rescale=False,
             ).to(device)
 
             image_features = model.get_image_features(**inputs)
@@ -98,48 +183,207 @@ def zero_shot_classification(
             )
 
             # Cosine similarity logits
-            if hasattr(model, "logit_scale"):
-                logit_scale = model.logit_scale.exp()
-                logits_per_image = logit_scale * (image_features @ text_features.T)
-            else:
-                logits_per_image = image_features @ text_features.T
+            logits_per_image = image_features @ class_text_features.T
 
             probs = logits_per_image.softmax(dim=-1)
             preds = probs.argmax(dim=-1)
 
             all_predictions.append(preds.cpu().numpy())
 
-    inference_time = time.time() - start_time
+    zero_shot_inference_time = time.time() - start_time
 
-    # metrics
     y_true = np.concatenate(all_labels, axis=0)
     y_pred = np.concatenate(all_predictions, axis=0)
 
-    # compute_metrics expects (targets, predictions)
-    metrics = compute_metrics(y_true, y_pred)
-    confusion_matrix = get_confusion_matrix(y_true, y_pred, num_classes)
+    zero_shot_metrics = compute_metrics(y_true, y_pred)
+    zero_shot_conf_mat = get_confusion_matrix(y_true, y_pred, num_classes)
 
-    # reporting
-    print(f"\nZero-Shot Test Results:")
-    print(f"  Accuracy:  {metrics['accuracy']:.2f}%")
-    print(f"  Precision: {metrics['precision']:.2f}%")
-    print(f"  Recall:    {metrics['recall']:.2f}%")
-    print(f"  F1-Score:  {metrics['f1_score']:.2f}%")
+    print(f"\nZero-Shot Test Results (SigLIP2):")
+    print(f"  Accuracy:  {zero_shot_metrics['accuracy']:.2f}%")
+    print(f"  Precision: {zero_shot_metrics['precision']:.2f}%")
+    print(f"  Recall:    {zero_shot_metrics['recall']:.2f}%")
+    print(f"  F1-Score:  {zero_shot_metrics['f1_score']:.2f}%")
 
-    # Save results
+    # Plot zero-shot confusion matrix
+    plot_path = config.PLOTS_DIR / "task3_zero_shot_classification.png"
+    plot_confusion_matrix(zero_shot_conf_mat, class_names, plot_path)
+
+    # --- OPTIONAL: LINEAR PROBE ON TOP OF SIGLIP FEATURES (NOT ZERO-SHOT) ---
+    linear_probe_results = None
+
+    if train_linear_probe:
+        print("\nTraining linear probe (logistic regression) on SigLIP2 image embeddings...")
+
+        def extract_features(loader):
+            feats_list, labels_list = [], []
+            with torch.no_grad():
+                for images, labels in tqdm(loader, desc="Extracting features"):
+                    images = images.to(device)
+                    inputs = processor(
+                        images=list(images),
+                        return_tensors="pt",
+                        do_rescale=False,
+                    ).to(device)
+                    img_feats = model.get_image_features(**inputs)
+                    img_feats = img_feats / img_feats.norm(p=2, dim=-1, keepdim=True)
+                    feats_list.append(img_feats.cpu())
+                    labels_list.append(labels.cpu())
+            feats = torch.cat(feats_list, dim=0)
+            labels = torch.cat(labels_list, dim=0)
+            return feats, labels
+
+        train_feats, train_labels = extract_features(train_loader)
+        val_feats, val_labels = extract_features(val_loader)
+        test_feats, test_labels = extract_features(test_loader)
+
+        embed_dim = train_feats.shape[1]
+        linear_head = nn.Linear(embed_dim, num_classes).to(device)
+
+        optimizer = torch.optim.Adam(
+            linear_head.parameters(),
+            lr=config.LINEAR_PROBE_LR,
+            weight_decay=config.LINEAR_PROBE_WEIGHT_DECAY,
+        )
+        criterion = nn.CrossEntropyLoss()
+
+        early_stopping = EarlyStopping(
+            patience=config.LINEAR_PROBE_PATIENCE,
+            mode="max",
+        )
+
+        # Wrap features in TensorDataset/DataLoader
+        train_dataset = TensorDataset(train_feats, train_labels)
+        val_dataset = TensorDataset(val_feats, val_labels)
+        test_dataset = TensorDataset(test_feats, test_labels)
+
+        feat_batch_size = config.BATCH_SIZE
+        train_feat_loader = DataLoader(train_dataset, batch_size=feat_batch_size, shuffle=True)
+        val_feat_loader = DataLoader(val_dataset, batch_size=feat_batch_size, shuffle=False)
+        test_feat_loader = DataLoader(test_dataset, batch_size=feat_batch_size, shuffle=False)
+
+        best_val_acc = 0.0
+        start_lp = time.time()
+
+        for epoch in range(1, config.LINEAR_PROBE_EPOCHS + 1):
+            # Train
+            linear_head.train()
+            running_loss = 0.0
+            correct = 0
+            total = 0
+
+            for feats, labels in train_feat_loader:
+                feats = feats.to(device)
+                labels = labels.to(device)
+
+                optimizer.zero_grad()
+                logits = linear_head(feats)
+                loss = criterion(logits, labels)
+                loss.backward()
+                optimizer.step()
+
+                running_loss += loss.item() * labels.size(0)
+                preds = logits.argmax(dim=1)
+                correct += (preds == labels).sum().item()
+                total += labels.size(0)
+
+            train_loss = running_loss / total
+            train_acc = 100.0 * correct / total
+
+            # Validate
+            linear_head.eval()
+            val_loss_sum = 0.0
+            val_correct = 0
+            val_total = 0
+
+            with torch.no_grad():
+                for feats, labels in val_feat_loader:
+                    feats = feats.to(device)
+                    labels = labels.to(device)
+                    logits = linear_head(feats)
+                    loss = criterion(logits, labels)
+                    val_loss_sum += loss.item() * labels.size(0)
+                    preds = logits.argmax(dim=1)
+                    val_correct += (preds == labels).sum().item()
+                    val_total += labels.size(0)
+
+            val_loss = val_loss_sum / val_total
+            val_acc = 100.0 * val_correct / val_total
+
+            print(
+                f"[Linear probe] Epoch {epoch}/{config.LINEAR_PROBE_EPOCHS} "
+                f"- Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}% "
+                f"- Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%"
+            )
+
+            if val_acc > best_val_acc:
+                best_val_acc = val_acc
+
+            if early_stopping(val_acc):
+                print(f"Linear probe early stopping at epoch {epoch}.")
+                break
+
+        lp_training_time = time.time() - start_lp
+
+        # Test linear probe
+        linear_head.eval()
+        all_lp_preds = []
+        all_lp_labels = []
+
+        with torch.no_grad():
+            for feats, labels in test_feat_loader:
+                feats = feats.to(device)
+                logits = linear_head(feats)
+                preds = logits.argmax(dim=1)
+                all_lp_preds.append(preds.cpu().numpy())
+                all_lp_labels.append(labels.numpy())
+
+        lp_y_true = np.concatenate(all_lp_labels, axis=0)
+        lp_y_pred = np.concatenate(all_lp_preds, axis=0)
+        lp_metrics = compute_metrics(lp_y_true, lp_y_pred)
+        lp_conf_mat = get_confusion_matrix(lp_y_true, lp_y_pred, num_classes)
+
+        print(f"\nLinear Probe Test Results (SigLIP2 features):")
+        print(f"  Accuracy:  {lp_metrics['accuracy']:.2f}%")
+        print(f"  Precision: {lp_metrics['precision']:.2f}%")
+        print(f"  Recall:    {lp_metrics['recall']:.2f}%")
+        print(f"  F1-Score:  {lp_metrics['f1_score']:.2f}%")
+
+        plot_path_lp = config.PLOTS_DIR / "task3_linear_probe_confusion_matrix.png"
+        plot_confusion_matrix(lp_conf_mat, class_names, plot_path_lp)
+
+        linear_probe_results = {
+            "training_time": lp_training_time,
+            "best_val_accuracy": best_val_acc,
+            "test_metrics": lp_metrics,
+            "confusion_matrix": lp_conf_mat.tolist(),
+            "hyperparameters": {
+                "lr": config.LINEAR_PROBE_LR,
+                "weight_decay": config.LINEAR_PROBE_WEIGHT_DECAY,
+                "epochs": config.LINEAR_PROBE_EPOCHS,
+                "early_stopping_patience": config.LINEAR_PROBE_PATIENCE,
+                "batch_size": feat_batch_size,
+            },
+        }
+
+    # --- Save all results ---
     results = {
-        "inference_time": inference_time,
-        "test_metrics": metrics,
-        "num_prompts_per_class": len(config.ZERO_SHOT_PROMPTS),
-        "prompts": config.ZERO_SHOT_PROMPTS,
-        "confusion_matrix": confusion_matrix.tolist(),  # make JSON-serializable
+        "zero_shot": {
+            "inference_time": zero_shot_inference_time,
+            "test_metrics": zero_shot_metrics,
+            "num_prompts_per_class": [len(p) for p in prompts_per_class],
+            "prompts": {
+                cls: prompts for cls, prompts in zip(class_names, prompts_per_class)
+            },
+            "confusion_matrix": zero_shot_conf_mat.tolist(),
+            "hyperparameters": {
+                "model_name": model_name,
+                "batch_size": config.BATCH_SIZE,
+            },
+        },
+        "linear_probe": linear_probe_results,
     }
 
-    # Confusion Matrix plot
-    plot_path = config.PLOTS_DIR / "task3_zero_shot_classification.png"
-    plot_confusion_matrix(confusion_matrix, class_names, plot_path)
-
-    results_path = config.RESULTS_DIR / "task3_zero_shot.json"
+    results_path = config.RESULTS_DIR / "task3_zero_shot_and_linear_probe.json"
     with open(results_path, "w") as f:
         json.dump(results, f, indent=4)
 
