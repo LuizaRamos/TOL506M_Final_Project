@@ -147,7 +147,7 @@ def fine_tune_pretrained(config: Config = None,
     print(f" F1-score: {test_metrics['f1_score']:.2f}%")
 
     # Plot training curve
-    plot_path = config.PLOTS_DIR / f"task2_fine_tuned_{data_fraction:.2f}.png"
+    plot_path = config.PLOTS_DIR / f"task2_fine_tuned_{freeze_mode}_{data_fraction:.2f}.png"
     plot_training_curves(
         train_losses, val_losses, train_accuracies, val_accuracies, save_path=str(plot_path)
     )
