@@ -179,7 +179,7 @@ def fine_tune_pretrained(config: Config = None,
         }
     }
 
-    result_path = config.METRICS_DIR / f'task2_fine_tuned_{data_fraction:.2f}.json'
+    result_path = config.METRICS_DIR / f'task2_fine_tuned_{freeze_mode}_{data_fraction:.2f}.json'
     with open(result_path, 'w') as f:
         json.dump(results, f, indent=4)
 
