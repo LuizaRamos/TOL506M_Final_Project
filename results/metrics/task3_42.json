@@ -1,0 +1,350 @@
+{
+    "zero_shot": {
+        "inference_time": 74.197261095047,
+        "test_metrics": {
+            "accuracy": 18.28367710720652,
+            "precision": 9.87893309998151,
+            "recall": 18.28367710720652,
+            "f1_score": 8.225683428151363
+        },
+        "num_prompts_per_class": [
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4
+        ],
+        "prompts": {
+            "dog": [
+                "a photo of a dog",
+                "a photo of a pet dog",
+                "a photo of a dog running outdoors",
+                "a close-up photo of a dog"
+            ],
+            "horse": [
+                "a photo of a horse",
+                "a photo of a horse running in a field",
+                "a photo of a horse on a farm",
+                "a close-up photo of a horse's head"
+            ],
+            "elephant": [
+                "a photo of an elephant",
+                "a photo of an elephant in the wild",
+                "a photo of an elephant in a savanna",
+                "a close-up photo of an elephant"
+            ],
+            "butterfly": [
+                "a close-up photo of a butterfly",
+                "a photo of a butterfly on a flower",
+                "a photo of a colorful butterfly in nature",
+                "a macro photograph of a butterfly"
+            ],
+            "chicken": [
+                "a photo of a chicken",
+                "a photo of a chicken on a farm",
+                "a photo of a hen or rooster",
+                "a close-up photo of a chicken"
+            ],
+            "cat": [
+                "a photo of a cat",
+                "a photo of a pet cat indoors",
+                "a photo of a cat lying on a couch",
+                "a close-up photo of a cat's face"
+            ],
+            "cow": [
+                "a photo of a cow",
+                "a photo of a cow on a farm",
+                "a photo of a cow grazing in a field",
+                "a close-up photo of a cow"
+            ],
+            "sheep": [
+                "a photo of a sheep",
+                "a photo of sheep grazing in a field",
+                "a photo of a flock of sheep",
+                "a close-up photo of a sheep on a farm"
+            ],
+            "spider": [
+                "a close-up photo of a spider",
+                "a photo of a spider on a web",
+                "a photo of a spider in nature",
+                "a macro photograph of a spider"
+            ],
+            "squirrel": [
+                "a photo of a squirrel",
+                "a photo of a squirrel on a tree",
+                "a photo of a squirrel eating a nut",
+                "a close-up photo of a squirrel in a park"
+            ]
+        },
+        "confusion_matrix": [
+            [
+                0,
+                349,
+                0,
+                0,
+                0,
+                84,
+                0,
+                255,
+                0,
+                42
+            ],
+            [
+                0,
+                361,
+                0,
+                0,
+                0,
+                1,
+                0,
+                31,
+                0,
+                0
+            ],
+            [
+                0,
+                121,
+                3,
+                0,
+                0,
+                15,
+                0,
+                47,
+                0,
+                31
+            ],
+            [
+                0,
+                107,
+                0,
+                0,
+                0,
+                172,
+                0,
+                1,
+                0,
+                37
+            ],
+            [
+                0,
+                345,
+                1,
+                0,
+                0,
+                13,
+                0,
+                89,
+                0,
+                17
+            ],
+            [
+                0,
+                106,
+                0,
+                0,
+                0,
+                105,
+                0,
+                39,
+                0,
+                0
+            ],
+            [
+                0,
+                171,
+                0,
+                0,
+                0,
+                37,
+                0,
+                38,
+                0,
+                34
+            ],
+            [
+                0,
+                38,
+                0,
+                0,
+                0,
+                13,
+                0,
+                209,
+                0,
+                13
+            ],
+            [
+                0,
+                631,
+                0,
+                0,
+                0,
+                69,
+                0,
+                2,
+                0,
+                21
+            ],
+            [
+                0,
+                73,
+                0,
+                0,
+                0,
+                29,
+                0,
+                137,
+                0,
+                40
+            ]
+        ],
+        "hyperparameters": {
+            "model_name": "google/siglip2-base-patch16-224",
+            "batch_size": 64
+        }
+    },
+    "linear_probe": {
+        "training_time": 27.807944774627686,
+        "best_val_accuracy": 99.41431117901706,
+        "test_metrics": {
+            "accuracy": 99.3379169849758,
+            "precision": 99.33965241602375,
+            "recall": 99.3379169849758,
+            "f1_score": 99.33680840328049
+        },
+        "confusion_matrix": [
+            [
+                727,
+                0,
+                0,
+                0,
+                0,
+                1,
+                0,
+                0,
+                1,
+                1
+            ],
+            [
+                0,
+                393,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            [
+                0,
+                0,
+                216,
+                0,
+                0,
+                0,
+                1,
+                0,
+                0,
+                0
+            ],
+            [
+                2,
+                0,
+                0,
+                312,
+                0,
+                0,
+                0,
+                0,
+                3,
+                0
+            ],
+            [
+                0,
+                0,
+                0,
+                0,
+                464,
+                0,
+                0,
+                0,
+                0,
+                1
+            ],
+            [
+                2,
+                0,
+                1,
+                0,
+                0,
+                247,
+                0,
+                0,
+                0,
+                0
+            ],
+            [
+                1,
+                4,
+                0,
+                0,
+                1,
+                0,
+                272,
+                2,
+                0,
+                0
+            ],
+            [
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                271,
+                0,
+                0
+            ],
+            [
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                721,
+                1
+            ],
+            [
+                0,
+                0,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                278
+            ]
+        ],
+        "hyperparameters": {
+            "lr": 0.001,
+            "weight_decay": 0.0001,
+            "epochs": 50,
+            "early_stopping_patience": 10,
+            "batch_size": 64
+        }
+    }
+}
