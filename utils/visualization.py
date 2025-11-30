@@ -1,8 +1,7 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-from pathlib import Path
-from typing import List, Dict, Tuple
+from typing import List
 
 def plot_training_curves(
         tarin_losses: List[float],
@@ -20,7 +19,7 @@ def plot_training_curves(
     :param save_path:
     :return:
     """
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4)) # Check if size is "good enough"
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 8)) #
 
     epochs = range(1, len(train_accuracies) + 1)
 
@@ -43,7 +42,7 @@ def plot_training_curves(
     plt.tight_layout()
 
     if save_path is not None:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.savefig(save_path, dpi=600, bbox_inches='tight')
     plt.show()
 
 def plot_learning_curves(
@@ -62,7 +61,7 @@ def plot_learning_curves(
     :param save_path: path to save the figure.
     """
 
-    plt.figure(figsize=(12, 4))
+    plt.figure(figsize=(12, 8))
 
     # Convert fractions to percentages for x-axis
     data_percentages = [f * 100 for f in data_fractions]
@@ -85,7 +84,7 @@ def plot_learning_curves(
     plt.tight_layout()
 
     if save_path is not None:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.savefig(save_path, dpi=600, bbox_inches='tight')
     plt.show()
 
 def plot_confusion_matrix(cm: np.ndarray, class_names: List[str],
@@ -110,7 +109,7 @@ def plot_confusion_matrix(cm: np.ndarray, class_names: List[str],
     plt.tight_layout()
 
     if save_path is not None:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.savefig(save_path, dpi=600, bbox_inches='tight')
 
     if show:
         plt.show()

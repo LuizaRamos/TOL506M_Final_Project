@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from transformers import AutoProcessor, AutoModel
 import numpy as np
 from tqdm.auto import tqdm
@@ -205,14 +206,14 @@ def zero_shot_classification(
     print(f"  F1-Score:  {zero_shot_metrics['f1_score']:.2f}%")
 
     # Plot zero-shot confusion matrix
-    plot_path = config.PLOTS_DIR / "task3_zero_shot_classification.png"
-    plot_confusion_matrix(zero_shot_conf_mat, class_names, plot_path, show=False)
+    plot_path = config.PLOTS_DIR / "task3_zeroshot_confusion_matrix.png"
+    plot_confusion_matrix(zero_shot_conf_mat, class_names, plot_path)
 
     # print a plain-text confusion matrix (to avoid problem with GitHub rendition)
     print("\nZero-Shot Confusion Matrix (rows = true, cols = pred):")
     print(zero_shot_conf_mat)
 
-    # --- OPTIONAL: LINEAR PROBE ON TOP OF SIGLIP FEATURES (NOT ZERO-SHOT) ---
+    # LINEAR PROBE ON TOP OF SIGLIP FEATURES (NOT ZERO-SHOT)
     linear_probe_results = None
 
     if train_linear_probe:
@@ -236,6 +237,7 @@ def zero_shot_classification(
             labels = torch.cat(labels_list, dim=0)
             return feats, labels
 
+        # Extract frozen SigLIP features for each split
         train_feats, train_labels = extract_features(train_loader)
         val_feats, val_labels = extract_features(val_loader)
         test_feats, test_labels = extract_features(test_loader)
@@ -248,7 +250,7 @@ def zero_shot_classification(
             lr=config.LINEAR_PROBE_LR,
             weight_decay=config.LINEAR_PROBE_WEIGHT_DECAY,
         )
-        criterion = nn.CrossEntropyLoss()
+        criterion = nn.BCEWithLogitsLoss()
 
         early_stopping = EarlyStopping(
             patience=config.LINEAR_PROBE_PATIENCE,
@@ -269,7 +271,7 @@ def zero_shot_classification(
         start_lp = time.time()
 
         for epoch in range(1, config.LINEAR_PROBE_EPOCHS + 1):
-            # Train
+            # -------------------- TRAIN --------------------
             linear_head.train()
             running_loss = 0.0
             correct = 0
@@ -279,21 +281,27 @@ def zero_shot_classification(
                 feats = feats.to(device)
                 labels = labels.to(device)
 
+                # One-hot encode labels for BCEWithLogitsLoss
+                labels_one_hot = F.one_hot(labels, num_classes=num_classes).float()
+
                 optimizer.zero_grad()
-                logits = linear_head(feats)
-                loss = criterion(logits, labels)
+                logits = linear_head(feats)  # (B, C)
+                loss = criterion(logits, labels_one_hot)  # BCEWithLogitsLoss
                 loss.backward()
                 optimizer.step()
 
                 running_loss += loss.item() * labels.size(0)
-                preds = logits.argmax(dim=1)
+
+                # Sigmoid + argmax for single-label prediction
+                probs = logits.sigmoid()
+                preds = probs.argmax(dim=1)
                 correct += (preds == labels).sum().item()
                 total += labels.size(0)
 
             train_loss = running_loss / total
             train_acc = 100.0 * correct / total
 
-            # Validate
+            # -------------------- VALIDATION --------------------
             linear_head.eval()
             val_loss_sum = 0.0
             val_correct = 0
@@ -303,10 +311,15 @@ def zero_shot_classification(
                 for feats, labels in val_feat_loader:
                     feats = feats.to(device)
                     labels = labels.to(device)
+
+                    labels_one_hot = F.one_hot(labels, num_classes=num_classes).float()
+
                     logits = linear_head(feats)
-                    loss = criterion(logits, labels)
+                    loss = criterion(logits, labels_one_hot)
                     val_loss_sum += loss.item() * labels.size(0)
-                    preds = logits.argmax(dim=1)
+
+                    probs = logits.sigmoid()
+                    preds = probs.argmax(dim=1)
                     val_correct += (preds == labels).sum().item()
                     val_total += labels.size(0)
 
@@ -328,7 +341,7 @@ def zero_shot_classification(
 
         lp_training_time = time.time() - start_lp
 
-        # Test linear probe
+        # -------------------- TEST --------------------
         linear_head.eval()
         all_lp_preds = []
         all_lp_labels = []
@@ -337,7 +350,8 @@ def zero_shot_classification(
             for feats, labels in test_feat_loader:
                 feats = feats.to(device)
                 logits = linear_head(feats)
-                preds = logits.argmax(dim=1)
+                probs = logits.sigmoid()
+                preds = probs.argmax(dim=1)
                 all_lp_preds.append(preds.cpu().numpy())
                 all_lp_labels.append(labels.numpy())
 
@@ -353,7 +367,7 @@ def zero_shot_classification(
         print(f"  F1-Score:  {lp_metrics['f1_score']:.2f}%")
 
         plot_path_lp = config.PLOTS_DIR / "task3_linear_probe_confusion_matrix.png"
-        plot_confusion_matrix(lp_conf_mat, class_names, plot_path_lp, show=False)
+        plot_confusion_matrix(lp_conf_mat, class_names, plot_path_lp)
 
         linear_probe_results = {
             "training_time": lp_training_time,
