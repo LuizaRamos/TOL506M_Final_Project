@@ -18,14 +18,6 @@ def get_pretrained_model(num_classes: int,
     # Load pretrained model
     if model_name == 'resnet18':
         model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
-    elif model_name == 'resnet34':
-        model = models.resnet34(weights=models.ResNet34_Weights.IMAGENET1K_V1)
-    elif model_name == 'resnet50':
-        model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
-    elif model_name == 'resnet101':
-        model = models.resnet101(weights=models.ResNet101_Weights.IMAGENET1K_V1)
-    elif model_name == 'resnet152':
-        model = models.resnet152(weights=models.ResNet152_Weights.IMAGENET1K_V1)
     else:
         raise ValueError(f'Unsupported model name: {model_name}')
 

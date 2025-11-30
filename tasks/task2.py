@@ -5,7 +5,6 @@ import time
 import json
 from typing import Optional
 
-from torch.fx.experimental.unification.utils import freeze
 from torch.utils.data import DataLoader
 
 from config import Config

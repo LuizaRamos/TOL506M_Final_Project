@@ -9,8 +9,7 @@ from torch.utils.data import DataLoader
 
 from config import Config
 from data.dataset import WildlifeDataset, SplitIndices, get_data_loaders
-from models.resnet_scratch import (ResNet18Scratch, ResNet34Scratch, ResNet50Scratch,
-                                   ResNet101Scratch, ResNet152Scratch)
+from models.resnet_scratch import ResNet18Scratch
 from utils.training import train_epoch, validate, EarlyStopping
 from utils.evaluation import evaluate_model
 from utils.visualization import plot_training_curves
@@ -25,7 +24,7 @@ def train_from_scratch(config: Config = None,
                        test_loader: Optional[DataLoader] = None):
     """
     Train ResNet-(version_RestNet)
-    :param version_RestNet: 18, 34, 50, 101 or 152.
+    :param version_RestNet: 18 (Other versions can be added latter)
     :param config: Configuration object.
     :param data_fraction: Fraction of training data to use.
     :param save_model: Whether to save the model.
@@ -67,22 +66,6 @@ def train_from_scratch(config: Config = None,
     if version_RestNet == 18:
         model = ResNet18Scratch(num_classes=num_classes).to(config.DEVICE)
         print("Model ResNet-18 from scratch.")
-        print(f"Parameters: {sum(p.numel() for p in model.parameters()):,}")
-    elif version_RestNet == 34:
-        model = ResNet34Scratch(num_classes=num_classes).to(config.DEVICE)
-        print("Model ResNet-34 from scratch.")
-        print(f"Parameters: {sum(p.numel() for p in model.parameters()):,}")
-    elif version_RestNet == 50:
-        model = ResNet50Scratch(num_classes=num_classes).to(config.DEVICE)
-        print("Model ResNet-50 from scratch.")
-        print(f"Parameters: {sum(p.numel() for p in model.parameters()):,}")
-    elif version_RestNet == 101:
-        model = ResNet101Scratch(num_classes=num_classes).to(config.DEVICE)
-        print("Model ResNet-101 from scratch.")
-        print(f"Parameters: {sum(p.numel() for p in model.parameters()):,}")
-    elif version_RestNet == 152:
-        model = ResNet152Scratch(num_classes=num_classes).to(config.DEVICE)
-        print("Model ResNet-152 from scratch.")
         print(f"Parameters: {sum(p.numel() for p in model.parameters()):,}")
     else:
         raise ValueError(f"Unsupported version: {version_RestNet}")

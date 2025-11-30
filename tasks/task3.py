@@ -185,7 +185,7 @@ def zero_shot_classification(
             # Cosine similarity logits
             logits_per_image = image_features @ class_text_features.T
 
-            probs = logits_per_image.softmax(dim=-1)
+            probs = logits_per_image.sigmoid()
             preds = probs.argmax(dim=-1)
 
             all_predictions.append(preds.cpu().numpy())
