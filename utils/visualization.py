@@ -97,7 +97,7 @@ def plot_confusion_matrix(cm: np.ndarray, class_names: List[str],
     :param show: Show or not plot, default False (not displaying the plot).
     """
 
-    plt.figure(figsize=(12, 4))
+    fig = plt.figure(figsize=(12, 8))
 
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
                 xticklabels=class_names, yticklabels=class_names)
@@ -109,7 +109,9 @@ def plot_confusion_matrix(cm: np.ndarray, class_names: List[str],
     plt.tight_layout()
 
     if save_path is not None:
-        plt.savefig(save_path, dpi=600, bbox_inches='tight')
+        fig.savefig(save_path, dpi=600, bbox_inches='tight')
 
     if show:
         plt.show()
+
+    plt.close(fig)
