@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-from typing import List
+import pandas as pd
+from typing import List, Optional
 
 def plot_training_curves(
         tarin_losses: List[float],
@@ -19,7 +20,7 @@ def plot_training_curves(
     :param save_path:
     :return:
     """
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 8)) #
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
 
     epochs = range(1, len(train_accuracies) + 1)
 
@@ -50,6 +51,9 @@ def plot_learning_curves(
         scratch_accuracies: List[float],
         finetune_accuracies: List[float],
         zeroshot_accuracies: List[float],
+        scratch_uncertainties: List[float],
+        finetune_uncertainties: List[float],
+        zeroshot_uncertainties: List[float],
         save_path: str = None
 ):
     """
@@ -58,33 +62,81 @@ def plot_learning_curves(
     :param scratch_accuracies: Accuracies for training from scratch.
     :param finetune_accuracies: Accuracies for training for fine-tune.
     :param zeroshot_accuracies: Zero-shot accuracies.
+    :param scratch_uncertainties: Accuracies for training from scratch.
+    :param finetune_uncertainties: Accuracies for training from fine-tune.
+    :param zeroshot_uncertainties: Accuracies for training from zero-shot.
     :param save_path: path to save the figure.
     """
-
-    plt.figure(figsize=(12, 8))
 
     # Convert fractions to percentages for x-axis
     data_percentages = [f * 100 for f in data_fractions]
 
-    # Plot learning curves
-    plt.plot(data_percentages, scratch_accuracies, 'o-',
-             label="Training from Scratch Accuracy", linewidth=2, markersize=8)
-    plt.plot(data_percentages, finetune_accuracies, 's-',
-             label="Fine-tune Training Accuracy", linewidth=2, markersize=8)
-    plt.plot(data_percentages, zeroshot_accuracies, '--',
-             label="Zero-shot Training Accuracy", linewidth=2, markersize=8)
+    # Put everything into a long-form DataFrame for seaborn
+    models = (
+            ["Training from Scratch"] * len(data_percentages) +
+            ["Fine-tune Training"] * len(data_percentages) +
+            ["Zero-shot"] * len(data_percentages)
+    )
+
+    df = pd.DataFrame({
+        "Training Data Size (%)": data_percentages * 3,
+        "Test Accuracy (%)": (
+                scratch_accuracies +
+                finetune_accuracies +
+                zeroshot_accuracies
+        ),
+        "Uncertainty": (
+                scratch_uncertainties +
+                finetune_uncertainties +
+                zeroshot_uncertainties
+        ),
+        "Model": models
+    })
+
+    sns.set_theme(style="whitegrid")
+    plt.figure(figsize=(12, 8))
+
+    # Line plot with seaborn
+    ax = sns.lineplot(
+        data=df,
+        x="Training Data Size (%)",
+        y="Test Accuracy (%)",
+        hue="Model",
+        palette=sns.color_palette("plasma", n_colors=3),
+        marker="o",
+        linewidth=2
+    )
+
+    # Add uncertainty bands (mean +/- uncertainty)
+    for model_name, model_df in df.groupby("Model"):
+        x = model_df["Training Data Size (%)"].values
+        y = model_df["Test Accuracy (%)"].values
+        dy = model_df["Uncertainty"].values
+
+        # Make sure everything is numpy arrays
+        x = np.asarray(x, dtype=float)
+        y = np.asarray(y, dtype=float)
+        dy = np.asarray(dy, dtype=float)
+
+        plt.fill_between(
+            x,
+            y - dy,
+            y + dy,
+            alpha=0.2
+        )
 
     plt.xlabel('Training Data Size (%)', fontsize=12)
     plt.ylabel('Test Accuracy (%)', fontsize=12)
-    plt.title('Learning Curves', fontsize=14, fontweight='bold')
-    plt.legend(fontsize=12, loc='best')
-    plt.grid(True, alpha=0.3)
+    plt.title('Learning Curves with Uncertainty', fontsize=14, fontweight='bold')
     plt.xlim(0, 105)
+    plt.grid(True, alpha=0.3)
+    plt.legend(title="Model", fontsize=12, loc='best')
 
     plt.tight_layout()
 
     if save_path is not None:
         plt.savefig(save_path, dpi=600, bbox_inches='tight')
+
     plt.show()
 
 def plot_confusion_matrix(cm: np.ndarray, class_names: List[str],
