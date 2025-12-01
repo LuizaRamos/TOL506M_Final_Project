@@ -139,6 +139,88 @@ def plot_learning_curves(
 
     plt.show()
 
+def plot_learning_curve_for_metric(
+    df: pd.DataFrame,
+    metric_col: str,
+    metric_unc_col: str,
+    metric_pretty_name: str,
+    methods_to_use: List[str],
+    save_path: str = None
+):
+    """
+    Plot learning curve (with uncertainty) for a given metric for:
+    - Task 1 (scratch)
+    - Task 2 (freeze=up_to_layer3)
+    - Task 3 (zero shot)
+    - linear probe
+    :param df: Pandas DataFrame containing metric data.
+    :param metric_col: Name of metric column to be considered.
+    :param metric_unc_col: Name of uncertainty column to be considered.
+    :param metric_pretty_name: Name of metric pretty name.
+    :param methods_to_use: List of methods to use.
+    :param save_path: path to save the figure.
+    :return: prints the figure generated with plot
+    """
+
+    # Filter to the 4 methods we care about
+    sub = df[df["Method"].isin(methods_to_use)].copy()
+    sub["Model"] = sub["Method"].map(methods_to_use)
+
+    # Convert fractions (0.1, 0.25, ...) to percentages
+    sub["Training Data Size (%)"] = sub["data_fraction"] * 100.0
+
+    # Build long-form dataframe for seaborn
+    plot_df = sub[[
+        "Training Data Size (%)",
+        metric_col,
+        metric_unc_col,
+        "Model"
+    ]].rename(
+        columns={
+            metric_col: f"{metric_pretty_name} (%)",
+            metric_unc_col: "Uncertainty"
+        }
+    )
+
+    sns.set_theme(style="whitegrid")
+    plt.figure(figsize=(12, 8))
+
+    # Line plot
+    ax = sns.lineplot(
+        data=plot_df,
+        x="Training Data Size (%)",
+        y=f"{metric_pretty_name} (%)",
+        hue="Model",
+        marker="o",
+        linewidth=2
+    )
+
+    # Add uncertainty bands for each model
+    for model_name, model_df in plot_df.groupby("Model"):
+        x = model_df["Training Data Size (%)"].values.astype(float)
+        y = model_df[f"{metric_pretty_name} (%)"].values.astype(float)
+        dy = model_df["Uncertainty"].values.astype(float)
+
+        plt.fill_between(
+            x,
+            y - dy,
+            y + dy,
+            alpha=0.2
+        )
+
+    plt.xlabel("Training Data Size (%)", fontsize=12)
+    plt.ylabel(f"Test {metric_pretty_name} (%)", fontsize=12)
+    plt.title(f"{metric_pretty_name} Learning Curves with Uncertainty", fontsize=14, fontweight="bold")
+    plt.xlim(0, 105)
+    plt.grid(True, alpha=0.3)
+    plt.legend(title="Model", fontsize=12, loc="best")
+    plt.tight_layout()
+
+    if save_path is not None:
+        plt.savefig(save_path, dpi=600, bbox_inches="tight")
+
+    plt.show()
+
 def plot_confusion_matrix(cm: np.ndarray, class_names: List[str],
                           save_path: str = None, show: bool = False):
     """
