@@ -2,10 +2,10 @@
 
 > TÖL506M – *Introduction to Deep Learning*, University of Iceland (Fall 2025) Final Project
 
-This project explores three complementary approaches to wildlife image classification:
+This repository contains all code and experiments for comparing three computer-vision approaches to wildlife image classification using the Animals-10 dataset. The goal is to evaluate the performance, data efficiency, and computational cost of:
 1. **Training from scratch** using a convolutional neural network (ResNet-18),
-2. **Fine-tuning** a pretrained ImageNet model for transfer learning,
-3. **Zero-shot classification** with **SigLIP 2**, a state-of-the-art vision-language model from Google.
+2. **Fine-tuning** a pre-trained ImageNet model for transfer learning,
+3. **Zero-shot classification** with **SigLIP 2**, plus a linear probe based on the same model.
 
 By comparing these techniques on the same dataset, this project highlights the trade-offs between data efficiency, computational cost, and accuracy.
 
@@ -15,18 +15,17 @@ By comparing these techniques on the same dataset, this project highlights the t
 - Implement and train a CNN from scratch on a wildlife dataset  
 - Apply transfer learning and experiment with layer freezing strategies  
 - Perform zero-shot classification with SigLIP 2  
-- Generate learning curves to visualize how model performance scales with data size  
-- Analyze and discuss the efficiency and generalization of each approach
+- Generate learning curves to visualise how model performance scales with data size  
+- Analyse and discuss the efficiency and generalisation of each approach
 
 ---
 
 ## Dataset
-The project supports multiple datasets; the experiments were run on:
+The Animals-10 [(Dataset link)](https://www.kaggle.com/datasets/alessiocorrado99/animals10) dataset consists of 26,179 images across 10 classes (dog, horse, elephant, butterfly, chicken, cat, cow, sheep, spider, squirrel) as described in the report (see Table 1 on page 2).
 
-**Animals-10** (Kaggle)  
-- ~28 000 images across 10 animal classes  
-- Moderate difficulty and balanced data distribution  
-- [Dataset link](https://www.kaggle.com/datasets/alessiocorrado99/animals10)
+Stratified splits used: 70% training /15% validation /15% testing.
+
+Training subsets of 10%, 25%, 50%, 75%, and 100% were used for data-efficiency experiments.
 
 ---
 
@@ -51,12 +50,17 @@ TOL506M_Final_Project/
 ├── notebooks/                  # Jupyter notebooks (experiments, exploration)
 │   ├── 00_data_exploration.ipynb
 │   ├── 01_task1_scratch.ipynb
+│   ├── 01_task1_scratch_2.ipynb
+│   ├── 01_task1_scratch_3.ipynb
 │   ├── 02_task2_finetune.ipynb
-│   ├── 03_task3_zeroshot.ipynb        
-│   ├── 04_task4_learning_curvers.ipynb
-│   └── 05_results_summary.ipynb
+│   ├── 02_task2_finetune_2.ipynb
+│   ├── 02_task2_finetune_3.ipynb
+│   ├── 03_task3_zeroshot.ipynb   
+│   ├── 03_task3_zeroshot_2.ipynb   
+│   ├── 03_task3_zeroshot_3.ipynb        
+│   └── 04_task4_learning_curvers.ipynb
 │
-├── results/                    # Output results, logs, and generated artifacts
+├── results/                    # Output results
 │
 ├── tasks/                      # Task-specific training and evaluation scripts
 │   ├── __init__.py
