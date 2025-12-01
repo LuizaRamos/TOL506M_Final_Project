@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import pandas as pd
-from typing import List, Optional
+from typing import List, Dict
+
 
 def plot_training_curves(
         tarin_losses: List[float],
@@ -145,6 +146,7 @@ def plot_learning_curve_for_metric(
     metric_unc_col: str,
     metric_pretty_name: str,
     methods_to_use: List[str],
+    method_name_map: Dict[str, str],
     save_path: str = None
 ):
     """
@@ -164,7 +166,7 @@ def plot_learning_curve_for_metric(
 
     # Filter to the 4 methods we care about
     sub = df[df["Method"].isin(methods_to_use)].copy()
-    sub["Model"] = sub["Method"].map(methods_to_use)
+    sub["Model"] = sub["Method"].map(method_name_map)
 
     # Convert fractions (0.1, 0.25, ...) to percentages
     sub["Training Data Size (%)"] = sub["data_fraction"] * 100.0
